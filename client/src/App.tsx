@@ -1,49 +1,61 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect, useRef, useState } from "react";
 import { BackendService } from "@genezio-sdk/Calendars-Sync";
+import { AuthService } from "@genezio/auth";
+import { useNavigate } from 'react-router-dom';
 import "./App.css";
 
-export default function App() {
-  const [name, setName] = useState("");
-  const [response, setResponse] = useState("");
+export default function App({authInstance}: {authInstance: AuthService}) {
+  let loaded = false;
+  const navigate = useNavigate();
 
-  async function sayHello() {
-    setResponse(await BackendService.hello(name));
+  const [connections, setConnections] = useState<any[]>([]);
+
+  const handleAdd = async () => {
+    const accountNickname = prompt('Enter a nickname for this account');
+    const url = await BackendService.getAuthUrl(accountNickname || 'default');
+    // redirect to the authorization URL
+    window.location.href = url;
+  };
+
+  const handleSignOut = async () => {
+    await authInstance.logout();
+    navigate('/login');
   }
+
+  const handleDelete = async (accountNickname: string) => {
+    await BackendService.deleteConnection(accountNickname);
+    setConnections(connections.filter((connection) => connection.account_nickname !== accountNickname));
+  }
+
+  useEffect(() => {
+    if (loaded) return;
+    loaded = true;
+
+    const userToken = authInstance.getUserToken();
+    if (!userToken) {
+      navigate('/login');
+      return;
+    }
+
+    BackendService.getConnections().then((connections) => {
+      setConnections(connections);
+    });
+  }, []);
 
   return (
     <>
-      <div>
-        <a href="https://genezio.com" target="_blank">
-          <img
-            src="https://raw.githubusercontent.com/Genez-io/graphics/main/svg/Logo_Genezio_White.svg"
-            className="logo genezio light"
-            alt="Genezio Logo"
-          />
-          <img
-            src="https://raw.githubusercontent.com/Genez-io/graphics/main/svg/Logo_Genezio_Black.svg"
-            className="logo genezio dark"
-            alt="Genezio Logo"
-          />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Genezio + React = ❤️</h1>
-      <div className="card">
-        <input
-          type="text"
-          className="input-box"
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
-        />
-        <br />
-        <br />
+      <h1>Calendar Sync App</h1>
+      <ul>
+        {connections.map((connection) => (
+          <li key={connection._id}>
+            {connection.account_nickname}
+            <button onClick={() => handleDelete(connection.account_nickname)}>Delete</button>
+          </li>
+        ))}
+      </ul>
 
-        <button onClick={() => sayHello()}>Say Hello</button>
-        <p className="read-the-docs">{response}</p>
-      </div>
+      <button onClick={handleAdd}>Add Calendar</button>
+      <button onClick={handleSignOut}>Sign Out</button>
     </>
   );
 }

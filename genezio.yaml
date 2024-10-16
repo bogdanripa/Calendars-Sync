@@ -19,7 +19,25 @@ frontend:
             - npm run dev --silent
     sdk:
         language: ts
-    subdomain: Calendars-Sync
+    subdomain: calendars-sync
+    environment:
+        VITE_AUTH_TOKEN: ${{services.authentication.token}}
+        VITE_AUTH_REGION: ${{services.authentication.region}}
+services:
+    databases:
+        - name: calendars-sync
+          region: eu-central-1
+          type: mongo-atlas
+    authentication:
+        database:
+            name: calendars-sync
+            type: mongo-atlas
+        providers:
+            email: false
+            web3: false
+            google:
+                clientId: ${{env.GOOGLE_CLIENT_ID}}
+                clientSecret: ${{env.GOOGLE_SECRET}}
 name: Calendars-Sync
 region: eu-central-1
 yamlVersion: 2

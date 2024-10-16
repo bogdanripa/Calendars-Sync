@@ -9,6 +9,9 @@
     "license": "ISC",
     "dependencies": {
         "@genezio/types": "^1.0.14",
+        "google-auth-library": "^9.14.2",
+        "googleapis": "^144.0.0",
+        "mongoose": "^8.7.1",
         "node-fetch": "^3.3.2"
     },
     "prettier": {
