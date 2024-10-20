@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { BackendService } from "@genezio-sdk/Calendars-Sync";
 import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
@@ -11,8 +11,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   const [connections, setConnections] = useState<any[]>([]);
 
   const handleAdd = async () => {
-    const accountNickname = prompt('Enter a nickname for this account');
-    const url = await BackendService.getAuthUrl(accountNickname || 'default');
+    const url = await BackendService.getAuthUrl();
     // redirect to the authorization URL
     window.location.href = url;
   };
@@ -22,16 +21,21 @@ export default function App({authInstance}: {authInstance: AuthService}) {
     navigate('/login');
   }
 
-  const handleDelete = async (accountNickname: string) => {
-    await BackendService.deleteConnection(accountNickname);
-    setConnections(connections.filter((connection) => connection.account_nickname !== accountNickname));
+  const handleDelete = async (calendar_id: string) => {
+    await BackendService.deleteConnection(calendar_id);
+    setConnections(connections.filter((connection) => connection.calendar_id !== calendar_id));
   }
 
   useEffect(() => {
     if (loaded) return;
     loaded = true;
 
-    const userToken = authInstance.getUserToken();
+    let userToken = null;
+    try {
+      userToken = authInstance.getUserToken();
+    } catch(e) {
+      console.error(e);
+    }
     if (!userToken) {
       navigate('/login');
       return;
@@ -39,22 +43,24 @@ export default function App({authInstance}: {authInstance: AuthService}) {
 
     BackendService.getConnections().then((connections) => {
       setConnections(connections);
+    }).catch(() => {
+      navigate('/login');
     });
   }, []);
 
   return (
     <>
       <h1>Calendar Sync App</h1>
-      <ul>
+      <ul className="accounts">
         {connections.map((connection) => (
           <li key={connection._id}>
-            {connection.account_nickname}
-            <button onClick={() => handleDelete(connection.account_nickname)}>Delete</button>
+            <span>{connection.calendar_id}</span>
+            <button onClick={() => handleDelete(connection.calendar_id)}>Delete</button>
           </li>
         ))}
       </ul>
 
-      <button onClick={handleAdd}>Add Calendar</button>
+      <button onClick={handleAdd}>Add Account</button>
       <button onClick={handleSignOut}>Sign Out</button>
     </>
   );

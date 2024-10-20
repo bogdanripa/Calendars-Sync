@@ -2,7 +2,6 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
 }
 
 .logo {
@@ -61,4 +60,89 @@
   box-shadow: none !important;
   border: 2px solid #888;
   padding: 10px;
+}
+
+.accounts {
+  list-style-type: none;
+}
+
+.accounts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0; /* Add vertical padding for spacing */
+  border-bottom: 1px solid #eee; /* Optional: Add a separator between items */
+}
+
+.accounts li:last-child {
+  border-bottom: none; /* Remove separator from the last item */
+}
+
+.accounts li span {
+  flex-grow: 1; /* Allow the span to take up remaining space */
+}
+
+.accounts li button {
+  flex-shrink: 0;    /* Prevent the button from shrinking */
+}
+
+
+.popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 20px;
+  width: 400px; /* Set a fixed width for consistent alignment */
+  max-height: 80vh; /* Ensure the popup doesn't exceed viewport height */
+  overflow: hidden; /* Hide overflow outside the popup */
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.popup h2 {
+  margin-top: 0;
+}
+
+.popup ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px; /* Set maximum height for scrollability */
+  overflow-y: auto;   /* Enable vertical scrolling */
+  margin-bottom: 20px; /* Add spacing below the list */
+}
+
+.popup li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0; /* Add vertical padding for spacing */
+  border-bottom: 1px solid #eee; /* Optional: Add a separator between items */
+}
+
+.popup li:last-child {
+  border-bottom: none; /* Remove separator from the last item */
+}
+
+.popup li span {
+  flex-grow: 1; /* Allow the span to take up remaining space */
+}
+
+.popup li button {
+  flex-shrink: 0;    /* Prevent the button from shrinking */
+  margin-left: 20px; /* Add space between the text and button */
+}
+
+button {
+  padding: 8px 12px;
+  margin-left: 20px; /* Add space between the text and button */
+}
+
+.popup .close-button {
+  display: block;
+  margin: 0 auto;
+  padding: 8px 16px;
 }

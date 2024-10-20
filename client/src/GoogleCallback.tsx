@@ -14,8 +14,7 @@ const GoogleCallback: React.FC = () => {
         const code = urlParams.get("code");
         if (code) {
             // Save the tokens
-            const accountNickname = urlParams.get("state");
-            BackendService.saveTokens(code, accountNickname || 'default')
+            BackendService.saveTokens(code)
             .catch((error) => {
                 alert(error);
             }).finally(() => {

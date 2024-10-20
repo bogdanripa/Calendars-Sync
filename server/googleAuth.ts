@@ -1,8 +1,7 @@
-import { google } from 'googleapis';
+import { google, calendar_v3 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-
-// Path to your OAuth2 credentials JSON file
-const CREDENTIALS_PATH = './client_secret.json';
+import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
+import credentials from './client_secret.json';
 
 // Define the OAuth2 client
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
@@ -11,24 +10,32 @@ let oauth2Client: OAuth2Client;
 // Initialize the OAuth2 client
 const initOAuthClient = async () => {
     console.log('Initializing OAuth client');
-    const credentials = require(CREDENTIALS_PATH);
-    const { client_id, client_secret, redirect_uris } = credentials.installed || credentials.web;
-    oauth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const { client_id, client_secret, redirect_uris } = credentials.web;
+    let redirectUri: string;
+    
+    if (process.env.HOME == '/') {
+        // we are on the server
+        redirectUri = redirect_uris[0].indexOf('localhost') == -1 ? redirect_uris[0] : redirect_uris[1];
+    } else {
+        // we are on the local machine
+        redirectUri = redirect_uris[0].indexOf('localhost') == -1 ? redirect_uris[1] : redirect_uris[0];
+    }
+    
+    oauth2Client = new google.auth.OAuth2(client_id, client_secret, redirectUri);
 };
 
 // Get the authentication URL
-export const getAuthUrl = async (accountNickname: string): Promise<string> => {
+const getAuthUrl = async (): Promise<string> => {
     if (!oauth2Client) await initOAuthClient();
     return oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES,
         prompt: 'select_account',
-        state: accountNickname,
     });
 };
 
 // Get access tokens using the authorization code
-export const getTokens = async (code: string) => {
+const getTokens = async (code: string) => {
     console.log('Getting tokens for ' + code);
     if (!oauth2Client) await initOAuthClient();
     const { tokens } = await oauth2Client.getToken(code);
@@ -36,8 +43,118 @@ export const getTokens = async (code: string) => {
     return tokens;
 };
 
-// Export the authenticated client for use in other API calls
-export const getAuthenticatedClient = async (): Promise<OAuth2Client> => {
+const refreshTokens = async (refresh_token: string) => {
     if (!oauth2Client) await initOAuthClient();
-    return oauth2Client;
+    oauth2Client.setCredentials({ refresh_token });
+    const tokens = await oauth2Client.refreshAccessToken();
+    return tokens.credentials;
+}
+
+const listUserCalendars = async (accessToken: string): Promise<calendar_v3.Schema$CalendarListEntry[]> => {
+    if (!oauth2Client) await initOAuthClient();
+    //const oauth2Client = new google.auth.OAuth2();
+
+    oauth2Client.setCredentials({ access_token: accessToken });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    
+    const response = await calendar.calendarList.list();
+    return response.data.items || [];
 };
+
+const listCalendarEvents = async (calendarId: string, access_token: string): Promise<calendar_v3.Schema$Event[]> => {
+    if (!oauth2Client) await initOAuthClient();
+    oauth2Client.setCredentials({ access_token });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const now = new Date();
+    const timeMin = now.toISOString();
+    const timeMax = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 14 days from now
+
+    const response = await calendar.events.list({
+        calendarId,
+        timeMin,
+        timeMax,
+        singleEvents: true,
+        orderBy: 'startTime',
+    });
+
+    return response.data.items || [];
+}
+
+/*
+const watchCalendar = async (calendarId: string, accessToken: string) => {
+    if (!oauth2Client) await initOAuthClient();
+    //const oauth2Client = new google.auth.OAuth2();
+
+    oauth2Client.setCredentials({ access_token: accessToken });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    try {
+        const watchRequest = {
+            id: `unique-channel-id-${calendarId}`, // Unique identifier for this channel
+            type: 'webhook',
+            address: 'https://calendars-sync.app.genez.io/webhook', // Your webhook URL
+            params: {
+                ttl: 604800 // Optional, time-to-live in seconds (7 days)
+            }
+        };
+
+        const response = await calendar.events.watch({
+            calendarId,
+            requestBody: watchRequest
+        });
+
+        console.log(`Watch set up for calendar ${calendarId}:`, response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error setting up watch:', error);
+        throw error;
+    }
+};
+*/
+
+const createEvent = async (event: calendar_v3.Schema$Event, accessToken: string, calendarId: string) => {
+    if (!oauth2Client) await initOAuthClient();
+    oauth2Client.setCredentials({ access_token: accessToken });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    // Ensure the event object includes iCalUID
+    if (!event.iCalUID) {
+        event.iCalUID = uuidv4() + "@calendars-sync.app.genez.io";
+    }
+
+    if (event.status == 'tentative') {
+        event.attendees = [
+            {
+                email: calendarId,
+                responseStatus: 'needsAction',
+                self: true                
+            }
+        ]
+    }
+    
+    await calendar.events.insert({
+        calendarId,
+        requestBody: event,
+    });
+}
+
+const deleteEvent = async (access_token: string, calendarId: string, eventId: string) => {
+    if (!oauth2Client) await initOAuthClient();
+    oauth2Client.setCredentials({ access_token });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    await calendar.events.delete({
+        calendarId,
+        eventId,
+    });
+}
+
+export const GoogleAuth = {getAuthUrl, getTokens, refreshTokens, listUserCalendars, listCalendarEvents, createEvent, deleteEvent};
+export type CalendarEvent = calendar_v3.Schema$Event;
+export type CalendarEntry = calendar_v3.Schema$CalendarListEntry;
+//export type CalendarChannel = calendar_v3.Schema$Channel;

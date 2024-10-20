@@ -1,16 +1,16 @@
 import { GenezioDeploy, GenezioAuth, GnzContext } from "@genezio/types";
-import { getAuthUrl, getTokens } from './googleAuth';
+import {GoogleAuth, CalendarEvent, CalendarEntry} from './googleAuth';
 import mongoose from 'mongoose';
 mongoose.connect(process.env["CALENDARS_SYNC_DATABASE_URL"] || "");
 
 const Connection = mongoose.model("Connection", new mongoose.Schema({
-  access_token: String,
-  refresh_token: String,
-  scope: String,
-  token_type: String,
-  expiry_date: Number,
-  account_nickname: String,
-  email: String,
+  access_token: { type: String, required: true },
+  refresh_token: { type: String, required: true },
+  scope: { type: String, required: true },
+  token_type: { type: String, required: true },
+  expiry_date: { type: Number, required: true },
+  email: { type: String, required: true },
+  calendar_id: { type: String, required: true },
 }));
 
 const Users = mongoose.model("Users", new mongoose.Schema({
@@ -27,19 +27,42 @@ export class BackendService {
   constructor() {}
 
   @GenezioAuth()
-  async getAuthUrl(context: GnzContext, accountNickname: string): Promise<string> {
-    return await getAuthUrl(accountNickname);
+  async getAuthUrl(context: GnzContext): Promise<string> {
+    return await GoogleAuth.getAuthUrl();
   }
 
   @GenezioAuth()
-  async saveTokens(context: GnzContext, code: string, accountNickname: string): Promise<any> {
-    // delete the existing one
-    await Connection.deleteMany({account_nickname: accountNickname, email: context.user?.email});
-
+  async saveTokens(context: GnzContext, code: string): Promise<undefined> {
     // save the new tokens
-    const tokens = await getTokens(code);    
-    const connection = new Connection({...tokens, account_nickname: accountNickname, email: context.user?.email});
-    connection.save();
+    const tokens = await GoogleAuth.getTokens(code);    
+    if(!tokens.access_token) {
+      throw new Error("Failed to get tokens");
+    }
+
+    const connection = new Connection({...tokens, email: context.user?.email});
+
+    // get calendar id
+    const cl:CalendarEntry[] = await GoogleAuth.listUserCalendars(tokens.access_token);
+    cl.forEach(async (c: CalendarEntry) => {
+      if (c.primary) {
+        connection.calendar_id = c.id || 'unknown@unknown.com';
+      }
+    });
+
+    // update existing one or create a new one
+    const oldConnection = await Connection.findOne({email: context.user?.email, calendar_id: connection.calendar_id});
+    if (oldConnection) {
+      oldConnection.access_token = connection.access_token;
+      if (connection.refresh_token) {
+        oldConnection.refresh_token = connection.refresh_token;
+      }
+      oldConnection.scope = connection.scope;
+      oldConnection.token_type = connection.token_type;
+      oldConnection.expiry_date = connection.expiry_date;
+      await oldConnection.save();
+    } else {
+      await connection.save();
+    }
   }
 
   @GenezioAuth()
@@ -48,23 +71,147 @@ export class BackendService {
   }
 
   @GenezioAuth()
-  async deleteConnection(context: GnzContext, accountNickname: string): Promise<any> {
-    return await Connection.deleteOne({email: context.user?.email, account_nickname: accountNickname});
+  async deleteConnection(context: GnzContext, calendar_id: string): Promise<undefined> {
+    await Connection.deleteOne({email: context.user?.email, calendar_id});
   }
 
-  async processUser(email: string) {
-    const connections = await Connection.find({email});
-    for (let connection of connections) {
-      console.log(connection.access_token);
+  async refreshToken(c: any) {
+    const tokens = await GoogleAuth.refreshTokens(c.refresh_token);
+    c.access_token = tokens.access_token;
+    //c.expiry_date = tokens.expiry_date;
+    c.refresh_token = tokens.refresh_token;
+    await c.save();
+  }
+
+  private mapResponseStatusToEventStatus(event: CalendarEvent): string {
+    // Find the attendee representing the authenticated user
+    const selfAttendee = event.attendees?.find((attendee: any) => attendee.self);
+  
+    // If there's no self attendee or no responseStatus, return the current event status
+    if (!selfAttendee || !selfAttendee.responseStatus) {
+      return event.status || '';
+    }
+  
+    // Map the responseStatus to an event status
+    switch (selfAttendee.responseStatus) {
+      case 'accepted':
+        return 'confirmed';
+      case 'tentative':
+        return 'tentative';
+      case 'declined':
+        return 'cancelled';
+      case 'needsAction':
+        // Decide how to handle 'needsAction'; you might treat it as 'tentative'
+        return 'tentative';
+      default:
+        // If the responseStatus is unrecognized, return the current event status
+        return event.status || '';
+    }
+  }
+
+  private async processUser(email: string, cnt: number = 0): Promise<undefined> {
+    if (cnt == 2) {
+      throw new Error("Failed to refresh token");
+    }
+    const cl = await Connection.find({email});
+    const events: CalendarEvent[][] = [];
+    const existingIds: { [key: string]: string } = {};
+    let i=0;
+    for (const c of cl) {
+      if (c.calendar_id && c.access_token) {
+        events[i] = [];
+        try {
+          const ce = await GoogleAuth.listCalendarEvents(c.calendar_id, c.access_token);
+          ce.forEach((event: CalendarEvent) => {
+            event.status = this.mapResponseStatusToEventStatus(event);
+            if (event.status == 'cancelled') return;
+            existingIds[event.id || ''] = event.status;
+            events[i].push({
+              id: event.id,
+              summary: event.summary,
+              status: event.status,
+              start: event.start,
+              end: event.end,
+            });
+          });
+        } catch(error: any) {
+          if(error.response.status == 401) {
+            console.log('Access token expired');
+            // refresh the token
+            await this.refreshToken(c);
+            return this.processUser(email, cnt+1);
+          } else
+            throw error;
+        }
+        i++;
+      }
+    }
+    // console.log(events);
+    // return;
+
+    const eventsToDelete = [];
+    for (let i=0;i<events.length;i++) {
+      for (let j=0;j<events[i].length;j++) {
+        const eventSummary: string = events[i][j].summary || '';
+        if (eventSummary.indexOf("Copied from ") == 0) {
+          const originalEventStatus = existingIds[eventSummary.replace("Copied from ", "")];
+          if (!originalEventStatus || originalEventStatus != events[i][j].status) {
+            eventsToDelete.push({
+              id: events[i][j].id,
+              accountIdx: i,
+            });
+            // remove the event from the list
+            events[i].splice(j, 1);
+            j--;
+          }
+        }
+      }
+    }
+
+    // deleteing the enents whose status changed or here the original event went away
+    for (let i=0;i<eventsToDelete.length;i++) {
+      console.log("Deleting " + eventsToDelete[i].id);
+      await GoogleAuth.deleteEvent(cl[eventsToDelete[i].accountIdx].access_token, cl[eventsToDelete[i].accountIdx].calendar_id, eventsToDelete[i].id || '');
+    }
+
+    // cloning new events
+    for (let i=0;i<events.length;i++) {
+      for (let j=0;j<events[i].length;j++) {
+        if (events[i][j].summary?.indexOf("Copied from ") == 0) {
+          continue;
+        }
+        const eventId = events[i][j].id;
+        for (let k=0;k<events.length;k++) {
+          if (i != k) {
+            // check if the event is present in the other calendars
+            const found = events[k].find((e:CalendarEvent) => e.summary?.replace("Copied from ", "") == eventId);
+            if (!found) {
+              // create the event
+              const evt = {
+                summary: "Copied from " + eventId,
+                start: events[i][j].start,
+                end: events[i][j].end,
+                status: events[i][j].status,
+              };
+              if (cl[k].access_token && cl[k].calendar_id) {
+                console.log("Cloning " + eventId);
+                console.log(evt);
+                await GoogleAuth.createEvent(evt, cl[k].access_token, cl[k].calendar_id);
+              }
+            }
+          }
+        }
+      }
     }
   }
 
   async processAllUsers() {
     const users = await Users.find({});
-    for (let user of users) {
+    for (const user of users) {
       console.log("Processing " + user.email);
       if (user.email)
         this.processUser(user.email);
     }
   }
+
 }
