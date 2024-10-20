@@ -82,6 +82,19 @@ const listCalendarEvents = async (calendarId: string, access_token: string): Pro
     return response.data.items || [];
 }
 
+const deauthorizeApp = async (access_token: string) => {
+    if (!oauth2Client) await initOAuthClient();
+    oauth2Client.setCredentials({ access_token });
+
+    try {
+        await oauth2Client.revokeCredentials();
+        console.log('The access token has been revoked.');
+    } catch (error) {
+        console.error('Failed to revoke the access token:', error);
+    }
+};
+
+
 /*
 const watchCalendar = async (calendarId: string, accessToken: string) => {
     if (!oauth2Client) await initOAuthClient();
@@ -154,7 +167,6 @@ const deleteEvent = async (access_token: string, calendarId: string, eventId: st
     });
 }
 
-export const GoogleAuth = {getAuthUrl, getTokens, refreshTokens, listUserCalendars, listCalendarEvents, createEvent, deleteEvent};
+export const GoogleAuth = {getAuthUrl, getTokens, refreshTokens, listUserCalendars, listCalendarEvents, createEvent, deleteEvent, deauthorizeApp};
 export type CalendarEvent = calendar_v3.Schema$Event;
 export type CalendarEntry = calendar_v3.Schema$CalendarListEntry;
-//export type CalendarChannel = calendar_v3.Schema$Channel;

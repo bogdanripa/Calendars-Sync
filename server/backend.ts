@@ -74,7 +74,11 @@ export class BackendService {
 
   @GenezioAuth()
   async deleteCalendar(context: GnzContext, calendar_id: string): Promise<undefined> {
-    await Calendar.deleteOne({email: context.user?.email, calendar_id});
+    const c = await Calendar.findOne({email: context.user?.email, calendar_id});
+    if (c) {
+      await GoogleAuth.deauthorizeApp(c.access_token);
+      await c.deleteOne();
+    }
   }
 
   async refreshToken(c: any) {

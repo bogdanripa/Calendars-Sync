@@ -10,7 +10,7 @@ import PrivacyPolicy from "./PrivacyPolicy.tsx";
 import TermsOfService from "./TermsOfService.tsx";
 import './index.css'
 
-let authInstance:AuthService = AuthService.getInstance();
+const authInstance:AuthService = AuthService.getInstance();
 
 authInstance.setTokenAndRegion(
   import.meta.env.VITE_AUTH_TOKEN as string,

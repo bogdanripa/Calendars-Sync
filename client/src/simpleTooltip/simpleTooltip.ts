@@ -1,4 +1,5 @@
-// simpleTooltip.js
+import './style.css';
+
 class SimpleTooltip {
     targetSelector: string;
     target: HTMLElement | null;
@@ -29,19 +30,10 @@ class SimpleTooltip {
       Array.from(document.getElementsByClassName('simple-tooltip')).forEach((el) => el.remove());
       this.tooltip.className = 'simple-tooltip';
       this.tooltip.textContent = this.message;
+
       this.tooltip.style.cssText = `
-        position: absolute;
-        background-color: #EEE;
-        border: 1px solid #DDD;
-        border-radius: 5px;
-        padding: 10px;
-        display: none;
-        z-index: 100;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        width: 200px;
         left: ${this.target.offsetLeft + this.target.offsetWidth / 2}px;
-        transform: translateX(-50%);
-        top: ${this.target.offsetTop - 20 + this.offsetY}px;  // adjust gap
+        top: -1000px;
       `;
   
       document.body.appendChild(this.tooltip);
@@ -50,32 +42,15 @@ class SimpleTooltip {
   
       // Add arrow with border
       const arrow = document.createElement('div');
-      arrow.style.cssText = `
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        margin-left: -10px;
-        width: 0;
-        height: 0;
-        border-style: solid;
-        border-width: 10px 10px 0 10px;
-        border-color: #DDD transparent transparent transparent;
-      `;
+      arrow.className = 'arrow';
   
       const arrowInner = document.createElement('div');
-      arrowInner.style.cssText = `
-        position: absolute;
-        top: -12px;
-        left: -10px;
-        width: 0;
-        height: 0;
-        border-style: solid;
-        border-width: 10px 10px 0 10px;
-        border-color: #EEE transparent transparent transparent;
-      `;
+      arrowInner.className = 'arrow-inner';
   
       arrow.appendChild(arrowInner);
       this.tooltip.appendChild(arrow);
+
+      this.tooltip.style.top = `${this.target.offsetTop - 10 - this.tooltip.offsetHeight + this.offsetY}px`;
     }
   
     show() {

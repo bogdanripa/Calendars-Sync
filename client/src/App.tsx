@@ -3,7 +3,7 @@ import { BackendService } from "@genezio-sdk/Calendars-Sync";
 import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
 import "./App.css";
-import SimpleTooltip from './simpleTooltip.js';
+import SimpleTooltip from './simpleTooltip/simpleTooltip.js';
 
 export default function App({authInstance}: {authInstance: AuthService}) {
   let loaded = false;
@@ -68,11 +68,13 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   }, []);
 
   useEffect(() => {
-    if (calendars.length === 0) {
-      new SimpleTooltip('.add', "Next, let's add a few calendars to sync");
-    } else {
-      new SimpleTooltip('.check:first-of-type', "S stands for source, D for destination. Click to toggle.");
-    }
+    setTimeout(() => {
+      if (calendars.length === 0) {
+        new SimpleTooltip('.add', "Next, let's add a few calendars to sync");
+      } else {
+        new SimpleTooltip('.check:first-of-type', "S stands for source, D for destination. Click to toggle.");
+      }
+    }, 1000);
   }, [calendars]);
 
   return (

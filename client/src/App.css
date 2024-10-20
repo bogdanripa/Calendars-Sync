@@ -17,20 +17,6 @@
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
 
-@media (prefers-color-scheme: dark) {
-  .dark {
-    display: none; /* Hide light logo in light mode */
-  }
-}
-
-
-@media (prefers-color-scheme: light) {
-  .light {
-    display: none; /* Hide dark logo in dark mode */
-  }
-}
-
-
 @keyframes logo-spin {
   from {
     transform: rotate(0deg);
@@ -48,10 +34,6 @@
 
 .card {
   padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
 }
 
 .input-box {
@@ -153,4 +135,7 @@ button {
 .accounts a.check {
   font-weight: bold;
   opacity: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
 }
