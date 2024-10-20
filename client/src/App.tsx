@@ -3,6 +3,7 @@ import { BackendService } from "@genezio-sdk/Calendars-Sync";
 import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
 import "./App.css";
+import SimpleTooltip from './simpleTooltip.js';
 
 export default function App({authInstance}: {authInstance: AuthService}) {
   let loaded = false;
@@ -30,6 +31,20 @@ export default function App({authInstance}: {authInstance: AuthService}) {
     await BackendService.processAllUsers();
   }
 
+  const togleSource = async (calendar_id: string) => {
+    await BackendService.toggleSource(calendar_id);
+    const c = calendars.find((calendar) => calendar.calendar_id === calendar_id)
+    c.source = !c.source;
+    setCalendars([...calendars]);
+  }
+
+  const toggleDestination = async (calendar_id: string) => {
+    await BackendService.toggleDestination(calendar_id);
+    const c = calendars.find((calendar) => calendar.calendar_id === calendar_id)
+    c.destination = !c.destination;
+    setCalendars([...calendars]);
+  }
+
   useEffect(() => {
     if (loaded) return;
     loaded = true;
@@ -52,6 +67,14 @@ export default function App({authInstance}: {authInstance: AuthService}) {
     });
   }, []);
 
+  useEffect(() => {
+    if (calendars.length === 0) {
+      new SimpleTooltip('.add', "Next, let's add a few calendars to sync");
+    } else {
+      new SimpleTooltip('.check:first-of-type', "S stands for source, D for destination. Click to toggle.");
+    }
+  }, [calendars]);
+
   return (
     <>
       <h1>Calendar Sync App</h1>
@@ -59,12 +82,16 @@ export default function App({authInstance}: {authInstance: AuthService}) {
         {calendars.map((calendar) => (
           <li key={calendar._id}>
             <span>{calendar.calendar_id}</span>
+            <div>
+              <a href="#" title="Source" className={calendar.source?"check":""} onClick={() => togleSource(calendar.calendar_id)}>S</a>
+              <a href="#" title="Destination" className={calendar.destination?"check":""} onClick={() => toggleDestination(calendar.calendar_id)}>D</a>
+            </div>
             <button onClick={() => handleDelete(calendar.calendar_id)}>Delete</button>
           </li>
         ))}
       </ul>
 
-      <button onClick={handleAdd}>Add Calendar</button>
+      <button onClick={handleAdd} className="add">Add Calendar</button>
       {calendars.length > 0 &&
         <button onClick={handleSync}>Sync Calendars</button>
       }

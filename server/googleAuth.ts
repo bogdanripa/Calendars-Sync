@@ -69,7 +69,7 @@ const listCalendarEvents = async (calendarId: string, access_token: string): Pro
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const now = new Date();
     const timeMin = now.toISOString();
-    const timeMax = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 14 days from now
+    const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 14 days from now
 
     const response = await calendar.events.list({
         calendarId,

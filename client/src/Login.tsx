@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CredentialResponse, GoogleLogin } from '@react-oauth/google';
 import { AuthService } from '@genezio/auth';
 import { useNavigate } from 'react-router-dom';
+import SimpleTooltip from './simpleTooltip.js';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +22,10 @@ const Login: React.FC = () => {
 
       setGoogleLoginLoading(false);
   };
+
+  useEffect(() => {
+    new SimpleTooltip('.form-container', 'First, you need to sign in', -40);
+  }, [])
 
   return (
     <div className="form-container">

@@ -11,6 +11,8 @@ const Calendar = mongoose.model("Calendar", new mongoose.Schema({
   expiry_date: { type: Number, required: true },
   email: { type: String, required: true },
   calendar_id: { type: String, required: true },
+  source: Boolean,
+  destination: Boolean,
 }));
 
 const Users = mongoose.model("Users", new mongoose.Schema({
@@ -39,7 +41,7 @@ export class BackendService {
       throw new Error("Failed to get tokens");
     }
 
-    const calendar = new Calendar({...tokens, email: context.user?.email});
+    const calendar = new Calendar({...tokens, email: context.user?.email, source: true, destination: true});
 
     // get calendar id
     const cl:CalendarEntry[] = await GoogleAuth.listUserCalendars(tokens.access_token);
@@ -77,10 +79,31 @@ export class BackendService {
 
   async refreshToken(c: any) {
     const tokens = await GoogleAuth.refreshTokens(c.refresh_token);
+    console.log(tokens);
     c.access_token = tokens.access_token;
-    //c.expiry_date = tokens.expiry_date;
+    c.expiry_date = tokens.expiry_date;
     c.refresh_token = tokens.refresh_token;
     await c.save();
+  }
+
+  async toggleSource(calendar_id: string) {
+    const c = await Calendar.findOne({calendar_id});
+    if (c) {
+      c.source = !c.source;
+      await c.save();
+    } else {
+      throw new Error("Calendar not found");
+    }
+  }
+
+  async toggleDestination(calendar_id: string) {
+    const c = await Calendar.findOne({calendar_id});
+    if (c) {
+      c.destination = !c.destination;
+      await c.save();
+    } else {
+      throw new Error("Calendar not found");
+    }
   }
 
   private mapResponseStatusToEventStatus(event: CalendarEvent): string {
@@ -175,12 +198,15 @@ export class BackendService {
 
     // cloning new events
     for (let i=0;i<events.length;i++) {
+      if (!cl[i].source) continue;
+      console.log(`Digging into ${cl[i].calendar_id} with ${events[i].length} events`);
       for (let j=0;j<events[i].length;j++) {
         if (events[i][j].summary?.indexOf("Copied from ") == 0) {
           continue;
         }
         const eventId = events[i][j].id;
         for (let k=0;k<events.length;k++) {
+          if (!cl[k].destination) continue;
           if (i != k) {
             // check if the event is present in the other calendars
             const found = events[k].find((e:CalendarEvent) => e.summary?.replace("Copied from ", "") == eventId);
@@ -208,8 +234,9 @@ export class BackendService {
     for (const user of users) {
       console.log("Processing " + user.email);
       if (user.email)
-        this.processUser(user.email);
+        await this.processUser(user.email);
     }
+    console.log("Processing - done");
   }
 
 }

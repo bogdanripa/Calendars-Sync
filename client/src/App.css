@@ -146,3 +146,11 @@ button {
   margin: 0 auto;
   padding: 8px 16px;
 }
+
+.accounts a {
+  opacity: 50%;
+}
+.accounts a.check {
+  font-weight: bold;
+  opacity: 100%;
+}
