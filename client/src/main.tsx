@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App.tsx'
 import Login from "./Login.tsx";
 import GoogleCallback from "./GoogleCallback.tsx";
+import PrivacyPolicy from "./PrivacyPolicy.tsx";
+import TermsOfService from "./TermsOfService.tsx";
 import './index.css'
 
 let authInstance:AuthService = AuthService.getInstance();
@@ -31,6 +33,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route 
             path = "/auth/google/callback"
             element={<GoogleCallback/>}
+          />
+          <Route
+            path="/privacy-policy"
+            element={<PrivacyPolicy />}
+          />
+          <Route
+            path="/terms-of-service"
+            element={<TermsOfService />}
           />
         </Routes>
       </BrowserRouter>
