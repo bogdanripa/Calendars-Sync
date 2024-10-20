@@ -3,7 +3,7 @@ import {GoogleAuth, CalendarEvent, CalendarEntry} from './googleAuth';
 import mongoose from 'mongoose';
 mongoose.connect(process.env["CALENDARS_SYNC_DATABASE_URL"] || "");
 
-const Connection = mongoose.model("Connection", new mongoose.Schema({
+const Calendar = mongoose.model("Calendar", new mongoose.Schema({
   access_token: { type: String, required: true },
   refresh_token: { type: String, required: true },
   scope: { type: String, required: true },
@@ -39,40 +39,40 @@ export class BackendService {
       throw new Error("Failed to get tokens");
     }
 
-    const connection = new Connection({...tokens, email: context.user?.email});
+    const calendar = new Calendar({...tokens, email: context.user?.email});
 
     // get calendar id
     const cl:CalendarEntry[] = await GoogleAuth.listUserCalendars(tokens.access_token);
     cl.forEach(async (c: CalendarEntry) => {
       if (c.primary) {
-        connection.calendar_id = c.id || 'unknown@unknown.com';
+        calendar.calendar_id = c.id || 'unknown@unknown.com';
       }
     });
 
     // update existing one or create a new one
-    const oldConnection = await Connection.findOne({email: context.user?.email, calendar_id: connection.calendar_id});
-    if (oldConnection) {
-      oldConnection.access_token = connection.access_token;
-      if (connection.refresh_token) {
-        oldConnection.refresh_token = connection.refresh_token;
+    const oldCalendar = await Calendar.findOne({email: context.user?.email, calendar_id: calendar.calendar_id});
+    if (oldCalendar) {
+      oldCalendar.access_token = calendar.access_token;
+      if (calendar.refresh_token) {
+        oldCalendar.refresh_token = calendar.refresh_token;
       }
-      oldConnection.scope = connection.scope;
-      oldConnection.token_type = connection.token_type;
-      oldConnection.expiry_date = connection.expiry_date;
-      await oldConnection.save();
+      oldCalendar.scope = calendar.scope;
+      oldCalendar.token_type = calendar.token_type;
+      oldCalendar.expiry_date = calendar.expiry_date;
+      await oldCalendar.save();
     } else {
-      await connection.save();
+      await calendar.save();
     }
   }
 
   @GenezioAuth()
-  async getConnections(context: GnzContext): Promise<any> {
-    return await Connection.find({email: context.user?.email});
+  async getCalendars(context: GnzContext): Promise<any> {
+    return await Calendar.find({email: context.user?.email});
   }
 
   @GenezioAuth()
-  async deleteConnection(context: GnzContext, calendar_id: string): Promise<undefined> {
-    await Connection.deleteOne({email: context.user?.email, calendar_id});
+  async deleteCalendar(context: GnzContext, calendar_id: string): Promise<undefined> {
+    await Calendar.deleteOne({email: context.user?.email, calendar_id});
   }
 
   async refreshToken(c: any) {
@@ -113,7 +113,7 @@ export class BackendService {
     if (cnt == 2) {
       throw new Error("Failed to refresh token");
     }
-    const cl = await Connection.find({email});
+    const cl = await Calendar.find({email});
     const events: CalendarEvent[][] = [];
     const existingIds: { [key: string]: string } = {};
     let i=0;
@@ -135,19 +135,18 @@ export class BackendService {
             });
           });
         } catch(error: any) {
-          if(error.response.status == 401) {
+          if(error.response?.status == 401) {
             console.log('Access token expired');
             // refresh the token
             await this.refreshToken(c);
             return this.processUser(email, cnt+1);
-          } else
+          } else {
             throw error;
+          }
         }
         i++;
       }
     }
-    // console.log(events);
-    // return;
 
     const eventsToDelete = [];
     for (let i=0;i<events.length;i++) {
@@ -195,7 +194,6 @@ export class BackendService {
               };
               if (cl[k].access_token && cl[k].calendar_id) {
                 console.log("Cloning " + eventId);
-                console.log(evt);
                 await GoogleAuth.createEvent(evt, cl[k].access_token, cl[k].calendar_id);
               }
             }

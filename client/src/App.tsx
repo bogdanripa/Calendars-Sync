@@ -8,7 +8,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   let loaded = false;
   const navigate = useNavigate();
 
-  const [connections, setConnections] = useState<any[]>([]);
+  const [calendars, setCalendars] = useState<any[]>([]);
 
   const handleAdd = async () => {
     const url = await BackendService.getAuthUrl();
@@ -22,8 +22,12 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   }
 
   const handleDelete = async (calendar_id: string) => {
-    await BackendService.deleteConnection(calendar_id);
-    setConnections(connections.filter((connection) => connection.calendar_id !== calendar_id));
+    await BackendService.deleteCalendar(calendar_id);
+    setCalendars(calendars.filter((calendar) => calendar.calendar_id !== calendar_id));
+  }
+
+  const handleSync = async () => {
+    await BackendService.processAllUsers();
   }
 
   useEffect(() => {
@@ -41,8 +45,8 @@ export default function App({authInstance}: {authInstance: AuthService}) {
       return;
     }
 
-    BackendService.getConnections().then((connections) => {
-      setConnections(connections);
+    BackendService.getCalendars().then((calendars) => {
+      setCalendars(calendars);
     }).catch(() => {
       navigate('/login');
     });
@@ -52,15 +56,18 @@ export default function App({authInstance}: {authInstance: AuthService}) {
     <>
       <h1>Calendar Sync App</h1>
       <ul className="accounts">
-        {connections.map((connection) => (
-          <li key={connection._id}>
-            <span>{connection.calendar_id}</span>
-            <button onClick={() => handleDelete(connection.calendar_id)}>Delete</button>
+        {calendars.map((calendar) => (
+          <li key={calendar._id}>
+            <span>{calendar.calendar_id}</span>
+            <button onClick={() => handleDelete(calendar.calendar_id)}>Delete</button>
           </li>
         ))}
       </ul>
 
-      <button onClick={handleAdd}>Add Account</button>
+      <button onClick={handleAdd}>Add Calendar</button>
+      {calendars.length > 0 &&
+        <button onClick={handleSync}>Sync Calendars</button>
+      }
       <button onClick={handleSignOut}>Sign Out</button>
     </>
   );

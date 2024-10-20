@@ -25,7 +25,7 @@ const Login: React.FC = () => {
   return (
     <div className="form-container">
       { googleLoginLoading ? 
-            <>Loading...</> :  
+            <>Loading...</> :
             <GoogleLogin
                 onSuccess={credentialResponse => {
                     handleGoogleLogin(credentialResponse);
