@@ -30,7 +30,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   }
 
   const handleSync = async () => {
-    await BackendService.processAllUsers();
+    await BackendService.processMe();
   }
 
   const togleSource = async (calendar_id: string) => {

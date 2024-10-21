@@ -1,4 +1,4 @@
-import { GenezioDeploy, GenezioAuth, GnzContext } from "@genezio/types";
+import { GenezioDeploy, GenezioAuth, GnzContext, GenezioMethod } from "@genezio/types";
 import {GoogleAuth, CalendarEvent, CalendarEntry} from './googleAuth';
 import mongoose from 'mongoose';
 mongoose.connect(process.env["CALENDARS_SYNC_DATABASE_URL"] || "");
@@ -233,6 +233,7 @@ export class BackendService {
     }
   }
 
+  @GenezioMethod({ type: "cron", cronString: "59 * * * *" })
   async processAllUsers() {
     const users = await Users.find({});
     for (const user of users) {
@@ -241,6 +242,12 @@ export class BackendService {
         await this.processUser(user.email);
     }
     console.log("Processing - done");
+  }
+
+  @GenezioAuth()
+  async processMe(context: GnzContext) {
+    if (context.user?.email)
+      await this.processUser(context.user.email);
   }
 
 }
