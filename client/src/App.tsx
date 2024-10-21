@@ -4,6 +4,8 @@ import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
 import "./App.css";
 import SimpleTooltip from './simpleTooltip/simpleTooltip.js';
+import Footer from './Footer.tsx';
+
 
 export default function App({authInstance}: {authInstance: AuthService}) {
   let loaded = false;
@@ -98,6 +100,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
         <button onClick={handleSync}>Sync Calendars</button>
       }
       <button onClick={handleSignOut}>Sign Out</button>
+      <Footer />
     </>
   );
 }

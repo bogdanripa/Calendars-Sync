@@ -3,6 +3,7 @@ import { CredentialResponse, GoogleLogin } from '@react-oauth/google';
 import { AuthService } from '@genezio/auth';
 import { useNavigate } from 'react-router-dom';
 import SimpleTooltip from './simpleTooltip/simpleTooltip.js';
+import Footer from './Footer.tsx';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -30,20 +31,23 @@ const Login: React.FC = () => {
   }, [])
 
   return (
-    <div className="form-container">
-      { googleLoginLoading ? 
-            <>Loading...</> :
-            <GoogleLogin
-                onSuccess={credentialResponse => {
-                    handleGoogleLogin(credentialResponse);
-                }}
-                onError={() => {
-                    console.log('Login Failed');
-                    alert('Login Failed')
-                }}
-            />
-       }
-    </div>
+    <>
+      <div className="form-container">
+        { googleLoginLoading ? 
+              <>Loading...</> :
+              <GoogleLogin
+                  onSuccess={credentialResponse => {
+                      handleGoogleLogin(credentialResponse);
+                  }}
+                  onError={() => {
+                      console.log('Login Failed');
+                      alert('Login Failed')
+                  }}
+              />
+        }
+      </div>
+      <Footer />
+    </>
   );
 };
 
