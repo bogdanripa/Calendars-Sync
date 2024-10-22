@@ -9,6 +9,16 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [googleLoginLoading, setGoogleLoginLoading] = useState(false);
 
+  AuthService.getInstance().userInfo()
+  .then((userInfo) => {
+      if (userInfo) {
+          navigate('/calendars');
+      }
+  })
+  .catch((error) => {
+      console.error('Failed to get user info', error);
+  });
+
   const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
       setGoogleLoginLoading(true);
       try {
