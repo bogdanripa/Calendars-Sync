@@ -1,0 +1,17 @@
+header {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background-color: #f8f9fa;
+    padding: 10px 30px;
+    text-align: left;
+    border-bottom: 1px solid #e9ecef;
+    color: #000000;
+    font-weight: bold;
+    font-size: 1.3em;
+    left: 0;
+}
+
+footer a {
+    margin: 0 1em;
+}

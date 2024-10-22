@@ -18,7 +18,7 @@ const GoogleCallback: React.FC = () => {
             .catch((error) => {
                 alert(error);
             }).finally(() => {
-                navigate('/');
+                navigate('/calendars');
             });
         }
     }, []);

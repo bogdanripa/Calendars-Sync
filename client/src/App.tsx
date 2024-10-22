@@ -4,8 +4,8 @@ import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
 import "./App.css";
 import SimpleTooltip from './simpleTooltip/simpleTooltip.js';
+import Header from './Header.tsx';
 import Footer from './Footer.tsx';
-
 
 export default function App({authInstance}: {authInstance: AuthService}) {
   let loaded = false;
@@ -21,7 +21,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
 
   const handleSignOut = async () => {
     await authInstance.logout();
-    navigate('/login');
+    navigate('/');
   }
 
   const handleDelete = async (calendar_id: string) => {
@@ -51,21 +51,10 @@ export default function App({authInstance}: {authInstance: AuthService}) {
     if (loaded) return;
     loaded = true;
 
-    let userToken = null;
-    try {
-      userToken = authInstance.getUserToken();
-    } catch(e) {
-      console.error(e);
-    }
-    if (!userToken) {
-      navigate('/login');
-      return;
-    }
-
     BackendService.getCalendars().then((calendars) => {
       setCalendars(calendars);
     }).catch(() => {
-      navigate('/login');
+      navigate('/');
     });
   }, []);
 
@@ -81,7 +70,8 @@ export default function App({authInstance}: {authInstance: AuthService}) {
 
   return (
     <>
-      <h1>Calendar Sync App</h1>
+      <Header />
+      <h3>Your calendars</h3>
       <ul className="accounts">
         {calendars.map((calendar) => (
           <li key={calendar._id}>
@@ -93,6 +83,13 @@ export default function App({authInstance}: {authInstance: AuthService}) {
             <button onClick={() => handleDelete(calendar.calendar_id)}>Delete</button>
           </li>
         ))}
+
+        {calendars.length === 0 &&
+          <li>
+            <span>No calendars added yet</span>
+          </li>
+        }
+
       </ul>
 
       <button onClick={handleAdd} className="add">Add Calendar</button>

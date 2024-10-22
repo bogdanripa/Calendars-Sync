@@ -23,11 +23,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
         <Routes>
           <Route
-            path="/login"
+            path="/"
             element={<Login />}
           />
           <Route
-            path="/"
+            path="/calendars"
             element={<App authInstance={authInstance} />}
           />
           <Route 

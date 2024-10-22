@@ -83,7 +83,7 @@ export class BackendService {
 
   async refreshToken(c: any) {
     const tokens = await GoogleAuth.refreshTokens(c.refresh_token);
-    console.log(tokens);
+    console.log(c.calendar_id + ': token refreshed: ' + JSON.stringify(tokens));
     c.access_token = tokens.access_token;
     c.expiry_date = tokens.expiry_date;
     c.refresh_token = tokens.refresh_token;
@@ -148,6 +148,7 @@ export class BackendService {
       if (c.calendar_id && c.access_token) {
         events[i] = [];
         try {
+          console.log(`${c.calendar_id}: Current token: ${c.access_token}`);
           const ce = await GoogleAuth.listCalendarEvents(c.calendar_id, c.access_token);
           ce.forEach((event: CalendarEvent) => {
             event.status = this.mapResponseStatusToEventStatus(event);
@@ -163,7 +164,7 @@ export class BackendService {
           });
         } catch(error: any) {
           if(error.response?.status == 401) {
-            console.log('Access token expired');
+            console.log(`${c.calendar_id}: token explired, token was: ${c.access_token}`);
             // refresh the token
             await this.refreshToken(c);
             return this.processUser(email, cnt+1);
@@ -203,7 +204,7 @@ export class BackendService {
     // cloning new events
     for (let i=0;i<events.length;i++) {
       if (!cl[i].source) continue;
-      console.log(`Digging into ${cl[i].calendar_id} with ${events[i].length} events`);
+      console.log(`${cl[i].calendar_id}: found ${events[i].length} events`);
       for (let j=0;j<events[i].length;j++) {
         if (events[i][j].summary?.indexOf("Copied from ") == 0) {
           continue;
@@ -238,8 +239,13 @@ export class BackendService {
     const users = await Users.find({});
     for (const user of users) {
       console.log("Processing " + user.email);
-      if (user.email)
-        await this.processUser(user.email);
+      if (user.email) {
+        try {
+          await this.processUser(user.email);
+        } catch(error: any) {
+          console.error("Error processing " + user.email + ": " + error);
+        }
+      }
     }
     console.log("Processing - done");
   }
