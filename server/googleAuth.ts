@@ -4,7 +4,18 @@ import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
 import credentials from './client_secret.json';
 
 // Define the OAuth2 client
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+const SCOPES = [
+    'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+    'https://www.googleapis.com/auth/calendar.events.freebusy',
+    'https://www.googleapis.com/auth/calendar.events.public.readonly',
+    'https://www.googleapis.com/auth/calendar.freebusy',
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.calendars.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/calendar.events.owned',
+    'https://www.googleapis.com/auth/calendar.events.owned.readonly',
+    'https://www.googleapis.com/auth/calendar.events.readonly',
+];
 let oauth2Client: OAuth2Client;
 
 // Initialize the OAuth2 client
@@ -93,40 +104,6 @@ const deauthorizeApp = async (access_token: string) => {
         console.error('Failed to revoke the access token:', error);
     }
 };
-
-
-/*
-const watchCalendar = async (calendarId: string, accessToken: string) => {
-    if (!oauth2Client) await initOAuthClient();
-    //const oauth2Client = new google.auth.OAuth2();
-
-    oauth2Client.setCredentials({ access_token: accessToken });
-
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    try {
-        const watchRequest = {
-            id: `unique-channel-id-${calendarId}`, // Unique identifier for this channel
-            type: 'webhook',
-            address: 'https://calendars-sync.app.genez.io/webhook', // Your webhook URL
-            params: {
-                ttl: 604800 // Optional, time-to-live in seconds (7 days)
-            }
-        };
-
-        const response = await calendar.events.watch({
-            calendarId,
-            requestBody: watchRequest
-        });
-
-        console.log(`Watch set up for calendar ${calendarId}:`, response.data);
-        return response.data;
-    } catch (error) {
-        console.error('Error setting up watch:', error);
-        throw error;
-    }
-};
-*/
 
 const createEvent = async (event: calendar_v3.Schema$Event, accessToken: string, calendarId: string) => {
     if (!oauth2Client) await initOAuthClient();
