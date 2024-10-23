@@ -1,9 +1,9 @@
 import { GenezioDeploy, GenezioAuth, GnzContext, GenezioMethod } from "@genezio/types";
-import {GoogleAuth, CalendarEvent, CalendarEntry} from './googleAuth';
-import mongoose from 'mongoose';
+import {GoogleAuth, CalendarEvent, CalendarEntry, GCredentials, EventAttendee} from './googleAuth';
+import mongoose, { Schema, Document, InferSchemaType } from 'mongoose';
 mongoose.connect(process.env["CALENDARS_SYNC_DATABASE_URL"] || "");
 
-const Calendar = mongoose.model("Calendar", new mongoose.Schema({
+const CalendarSchema = new Schema({
   access_token: { type: String, required: true },
   refresh_token: { type: String, required: true },
   scope: { type: String, required: true },
@@ -11,9 +11,14 @@ const Calendar = mongoose.model("Calendar", new mongoose.Schema({
   expiry_date: { type: Number, required: true },
   email: { type: String, required: true },
   calendar_id: { type: String, required: true },
-  source: Boolean,
-  destination: Boolean,
-}));
+  source: { type: Boolean },
+  destination: { type: Boolean },
+});
+
+// Infer the TypeScript type directly from the schema
+type CalendarDocument = Document & InferSchemaType<typeof CalendarSchema>;
+
+const Calendar = mongoose.model("Calendar", CalendarSchema);
 
 const Users = mongoose.model("Users", new mongoose.Schema({
   userId: String,
@@ -36,7 +41,7 @@ export class BackendService {
   @GenezioAuth()
   async saveTokens(context: GnzContext, code: string): Promise<undefined> {
     // save the new tokens
-    const tokens = await GoogleAuth.getTokens(code);    
+    const tokens:GCredentials = await GoogleAuth.getTokens(code);    
     if(!tokens.access_token) {
       throw new Error("Failed to get tokens");
     }
@@ -68,7 +73,7 @@ export class BackendService {
   }
 
   @GenezioAuth()
-  async getCalendars(context: GnzContext): Promise<any> {
+  async getCalendars(context: GnzContext): Promise<CalendarDocument[]> {
     return await Calendar.find({email: context.user?.email});
   }
 
@@ -81,13 +86,17 @@ export class BackendService {
     }
   }
 
-  async refreshToken(c: any) {
-    const tokens = await GoogleAuth.refreshTokens(c.refresh_token);
+  private async refreshToken(c: CalendarDocument) {
+    const tokens:GCredentials = await GoogleAuth.refreshTokens(c.refresh_token);
     console.log(c.calendar_id + ': token refreshed: ' + JSON.stringify(tokens));
-    c.access_token = tokens.access_token;
-    c.expiry_date = tokens.expiry_date;
-    c.refresh_token = tokens.refresh_token;
-    await c.save();
+    if (tokens.access_token && tokens.refresh_token && tokens.expiry_date) {
+      c.access_token = tokens.access_token;
+      c.expiry_date = tokens.expiry_date;
+      c.refresh_token = tokens.refresh_token;
+      await c.save();
+    } else {
+      throw new Error("Failed to refresh token. Got: " + JSON.stringify(tokens));
+    }
   }
 
   async toggleSource(calendar_id: string) {
@@ -112,7 +121,7 @@ export class BackendService {
 
   private mapResponseStatusToEventStatus(event: CalendarEvent): string {
     // Find the attendee representing the authenticated user
-    const selfAttendee = event.attendees?.find((attendee: any) => attendee.self);
+    const selfAttendee = event.attendees?.find((attendee: EventAttendee) => attendee.self);
   
     // If there's no self attendee or no responseStatus, return the current event status
     if (!selfAttendee || !selfAttendee.responseStatus) {
@@ -140,7 +149,7 @@ export class BackendService {
     if (cnt == 2) {
       throw new Error("Failed to refresh token");
     }
-    const cl = await Calendar.find({email});
+    const cl:CalendarDocument[] = await Calendar.find({email});
     const events: CalendarEvent[][] = [];
     const existingIds: { [key: string]: string } = {};
     let i=0;
@@ -210,7 +219,7 @@ export class BackendService {
           continue;
         }
         const eventId = events[i][j].id;
-        for (let k=0;k<events.length;k++) {
+        for (let k:number=0;k<events.length;k++) {
           if (!cl[k].destination) continue;
           if (i != k) {
             // check if the event is present in the other calendars
@@ -242,8 +251,12 @@ export class BackendService {
       if (user.email) {
         try {
           await this.processUser(user.email);
-        } catch(error: any) {
-          console.error("Error processing " + user.email + ": " + error);
+        } catch (error: unknown) {  // Use 'unknown' instead of 'any'
+          if (error instanceof Error) {
+            console.error("Error processing " + user.email + ": " + error.message);
+          } else {
+            console.error("Error processing " + user.email + ": " + JSON.stringify(error));
+          }
         }
       }
     }

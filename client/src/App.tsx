@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BackendService } from "@genezio-sdk/Calendars-Sync";
+import { BackendService, CalendarDocument } from "@genezio-sdk/Calendars-Sync";
 import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
 import "./App.css";
@@ -11,7 +11,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   let loaded = false;
   const navigate = useNavigate();
 
-  const [calendars, setCalendars] = useState<any[]>([]);
+  const [calendars, setCalendars] = useState<CalendarDocument[]>([]);
 
   const handleAdd = async () => {
     const url = await BackendService.getAuthUrl();

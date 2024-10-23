@@ -26,7 +26,7 @@ const Login: React.FC = () => {
 
         console.log('Login Success');
         navigate('/calendars');
-      } catch(error: any) {
+      } catch(error: unknown) {
         console.log('Login Failed', error);
         alert('Login Failed');
       }

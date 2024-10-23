@@ -1,7 +1,7 @@
 import { google, calendar_v3 } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+import { Credentials, OAuth2Client } from 'google-auth-library';
 import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
-import credentials from './client_secret.json';
+import oauthCredentials from './client_secret.json';
 
 // Define the OAuth2 client
 const SCOPES = [
@@ -13,7 +13,7 @@ let oauth2Client: OAuth2Client;
 // Initialize the OAuth2 client
 const initOAuthClient = async () => {
     console.log('Initializing OAuth client');
-    const { client_id, client_secret, redirect_uris } = credentials.web;
+    const { client_id, client_secret, redirect_uris } = oauthCredentials.web;
     let redirectUri: string;
     
     if (process.env.HOME == '/') {
@@ -38,19 +38,19 @@ const getAuthUrl = async (): Promise<string> => {
 };
 
 // Get access tokens using the authorization code
-const getTokens = async (code: string) => {
+const getTokens = async (code: string): Promise<Credentials> => {
     console.log('Getting tokens for ' + code);
     if (!oauth2Client) await initOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
-    return tokens;
+    const token = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(token.tokens);
+    return token.tokens;
 };
 
-const refreshTokens = async (refresh_token: string) => {
+const refreshTokens = async (refresh_token: string): Promise<Credentials> => {
     if (!oauth2Client) await initOAuthClient();
     oauth2Client.setCredentials({ refresh_token });
-    const tokens = await oauth2Client.refreshAccessToken();
-    return tokens.credentials;
+    const credentials:Credentials = (await oauth2Client.refreshAccessToken()).credentials;
+    return credentials;
 }
 
 const listUserCalendars = async (accessToken: string): Promise<calendar_v3.Schema$CalendarListEntry[]> => {
@@ -138,4 +138,6 @@ const deleteEvent = async (access_token: string, calendarId: string, eventId: st
 
 export const GoogleAuth = {getAuthUrl, getTokens, refreshTokens, listUserCalendars, listCalendarEvents, createEvent, deleteEvent, revokeToken};
 export type CalendarEvent = calendar_v3.Schema$Event;
+export type EventAttendee = calendar_v3.Schema$EventAttendee;
 export type CalendarEntry = calendar_v3.Schema$CalendarListEntry;
+export type GCredentials = Credentials;
