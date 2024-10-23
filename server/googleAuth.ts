@@ -6,15 +6,7 @@ import credentials from './client_secret.json';
 // Define the OAuth2 client
 const SCOPES = [
     'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
-    'https://www.googleapis.com/auth/calendar.events.freebusy',
-    'https://www.googleapis.com/auth/calendar.events.public.readonly',
-    'https://www.googleapis.com/auth/calendar.freebusy',
-    'https://www.googleapis.com/auth/calendar.readonly',
-    'https://www.googleapis.com/auth/calendar.calendars.readonly',
     'https://www.googleapis.com/auth/calendar.events',
-    'https://www.googleapis.com/auth/calendar.events.owned',
-    'https://www.googleapis.com/auth/calendar.events.owned.readonly',
-    'https://www.googleapis.com/auth/calendar.events.readonly',
 ];
 let oauth2Client: OAuth2Client;
 
@@ -93,12 +85,12 @@ const listCalendarEvents = async (calendarId: string, access_token: string): Pro
     return response.data.items || [];
 }
 
-const deauthorizeApp = async (access_token: string) => {
+const revokeToken = async (access_token: string) => {
     if (!oauth2Client) await initOAuthClient();
     oauth2Client.setCredentials({ access_token });
 
     try {
-        await oauth2Client.revokeCredentials();
+        await oauth2Client.revokeToken(access_token);
         console.log('The access token has been revoked.');
     } catch (error) {
         console.error('Failed to revoke the access token:', error);
@@ -144,6 +136,6 @@ const deleteEvent = async (access_token: string, calendarId: string, eventId: st
     });
 }
 
-export const GoogleAuth = {getAuthUrl, getTokens, refreshTokens, listUserCalendars, listCalendarEvents, createEvent, deleteEvent, deauthorizeApp};
+export const GoogleAuth = {getAuthUrl, getTokens, refreshTokens, listUserCalendars, listCalendarEvents, createEvent, deleteEvent, revokeToken};
 export type CalendarEvent = calendar_v3.Schema$Event;
 export type CalendarEntry = calendar_v3.Schema$CalendarListEntry;
