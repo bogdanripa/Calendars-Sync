@@ -88,7 +88,7 @@ export class BackendService {
 
   private async refreshToken(c: CalendarDocument) {
     const tokens:GCredentials = await GoogleAuth.refreshTokens(c.refresh_token);
-    console.log(c.calendar_id + ': token refreshed: ' + JSON.stringify(tokens));
+    console.log(c.calendar_id + ': token refreshed');
     if (tokens.access_token && tokens.refresh_token && tokens.expiry_date) {
       c.access_token = tokens.access_token;
       c.expiry_date = tokens.expiry_date;
@@ -157,7 +157,6 @@ export class BackendService {
       if (c.calendar_id && c.access_token) {
         events[i] = [];
         try {
-          console.log(`${c.calendar_id}: Current token: ${c.access_token}`);
           const ce = await GoogleAuth.listCalendarEvents(c.calendar_id, c.access_token);
           ce.forEach((event: CalendarEvent) => {
             event.status = this.mapResponseStatusToEventStatus(event);
@@ -166,6 +165,7 @@ export class BackendService {
             events[i].push({
               id: event.id,
               summary: event.summary,
+              description: event.description,
               status: event.status,
               start: event.start,
               end: event.end,
@@ -173,7 +173,7 @@ export class BackendService {
           });
         } catch(error: any) {
           if(error.response?.status == 401) {
-            console.log(`${c.calendar_id}: token explired, token was: ${c.access_token}`);
+            console.log(`${c.calendar_id}: token explired`);
             // refresh the token
             await this.refreshToken(c);
             return this.processUser(email, cnt+1);
@@ -188,7 +188,10 @@ export class BackendService {
     const eventsToDelete = [];
     for (let i=0;i<events.length;i++) {
       for (let j=0;j<events[i].length;j++) {
-        const eventSummary: string = events[i][j].summary || '';
+        let eventSummary: string = events[i][j].summary || '';
+        if (eventSummary.indexOf("Copied from ") == -1) {
+          eventSummary = events[i][j].description || '';
+        }
         if (eventSummary.indexOf("Copied from ") == 0) {
           const originalEventStatus = existingIds[eventSummary.replace("Copied from ", "")];
           if (!originalEventStatus || originalEventStatus != events[i][j].status) {
@@ -215,7 +218,11 @@ export class BackendService {
       if (!cl[i].source) continue;
       console.log(`${cl[i].calendar_id}: found ${events[i].length} events`);
       for (let j=0;j<events[i].length;j++) {
-        if (events[i][j].summary?.indexOf("Copied from ") == 0) {
+        let eventSummary = events[i][j].summary || '';
+        if (eventSummary.indexOf("Copied from ") == -1) {
+          eventSummary = events[i][j].description || '';
+        }
+        if (eventSummary.indexOf("Copied from ") == 0) {
           continue;
         }
         const eventId = events[i][j].id;
@@ -223,11 +230,18 @@ export class BackendService {
           if (!cl[k].destination) continue;
           if (i != k) {
             // check if the event is present in the other calendars
-            const found = events[k].find((e:CalendarEvent) => e.summary?.replace("Copied from ", "") == eventId);
+            const found = events[k].find((e:CalendarEvent) => {
+              let eventSummary = e.summary || '';
+              if (eventSummary.indexOf("Copied from ") == -1) {
+                eventSummary = e.description || '';
+              }
+              return eventSummary.replace("Copied from ", "") == eventId;
+            });
             if (!found) {
               // create the event
               const evt = {
-                summary: "Copied from " + eventId,
+                summary: `Busy (${events[i][j].status})`,
+                description: "Copied from " + eventId,
                 start: events[i][j].start,
                 end: events[i][j].end,
                 status: events[i][j].status,
