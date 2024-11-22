@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { BackendService, CalendarDocument } from "@genezio-sdk/Calendars-Sync";
 import { AuthService } from "@genezio/auth";
 import { useNavigate } from 'react-router-dom';
@@ -8,9 +8,9 @@ import Header from './Header.tsx';
 import Footer from './Footer.tsx';
 
 export default function App({authInstance}: {authInstance: AuthService}) {
-  let loaded = false;
   const navigate = useNavigate();
-
+  const once = useRef(true);
+  const [loading, setLoading] = useState(true);
   const [calendars, setCalendars] = useState<CalendarDocument[]>([]);
 
   const handleAdd = async () => {
@@ -48,11 +48,12 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   }
 
   useEffect(() => {
-    if (loaded) return;
-    loaded = true;
+    if (!once.current) return;
+    once.current = true;
 
     BackendService.getCalendars().then((calendars) => {
       setCalendars(calendars);
+      setLoading(false);
     }).catch(() => {
       navigate('/');
     });
@@ -61,7 +62,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   useEffect(() => {
     setTimeout(() => {
       if (calendars.length === 0) {
-        new SimpleTooltip('.add', "Next, let's add a few calendars to sync");
+        new SimpleTooltip('.add', "Let's add a few calendars to sync");
       } else {
         new SimpleTooltip('.check:first-of-type', "S stands for source, D for destination. Click to toggle.");
       }
@@ -84,12 +85,17 @@ export default function App({authInstance}: {authInstance: AuthService}) {
           </li>
         ))}
 
-        {calendars.length === 0 &&
+        {calendars.length === 0 && !loading &&
           <li>
             <span>No calendars added yet</span>
           </li>
         }
 
+        {loading &&
+          <li>
+            <span>Loading...</span>
+          </li>
+        }
       </ul>
 
       <button onClick={handleAdd} className="add">Add Calendar</button>
