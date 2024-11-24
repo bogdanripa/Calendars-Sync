@@ -88,14 +88,14 @@ export class BackendService {
 
   private async refreshToken(c: CalendarDocument) {
     const tokens:GCredentials = await GoogleAuth.refreshTokens(c.refresh_token);
-    console.log(c.calendar_id + ': token refreshed');
     if (tokens.access_token && tokens.refresh_token && tokens.expiry_date) {
       c.access_token = tokens.access_token;
       c.expiry_date = tokens.expiry_date;
       c.refresh_token = tokens.refresh_token;
       await c.save();
+      console.log(c.calendar_id + ': token refreshed');
     } else {
-      throw new Error("Failed to refresh token. Got: " + JSON.stringify(tokens));
+      throw new Error("${c.calendar_id}: Failed to refresh token. Got: " + JSON.stringify(tokens));
     }
   }
 
@@ -145,40 +145,61 @@ export class BackendService {
     }
   }
 
-  private async processUser(email: string, cnt: number = 0): Promise<undefined> {
+  private async processCalendar(c: CalendarDocument, cnt: number = 0): Promise<CalendarEvent[]> {
     if (cnt == 2) {
       throw new Error("Failed to refresh token");
     }
+
+    const events: CalendarEvent[] = [];
+    try {
+      const ce = await GoogleAuth.listCalendarEvents(c.calendar_id, c.access_token);
+      ce.forEach((event: CalendarEvent) => {
+        event.status = this.mapResponseStatusToEventStatus(event);
+        if (event.status == 'cancelled') return;
+        events.push({
+          id: event.id,
+          summary: event.summary,
+          description: event.description,
+          status: event.status,
+          start: event.start,
+          end: event.end,
+        });
+      });
+    } catch(error: any) {
+      if(error.response?.status == 401) {
+        console.log(`${c.calendar_id}: token explired`);
+        // refresh the token
+        try {
+          await this.refreshToken(c);
+        } catch (error: any) {
+          if (error.message == "invalid_grant") {
+            // the token is invalid, delete the calendar
+            console.error(`${c.calendar_id}: token is invalid, deleting the calendar`);
+            await c.deleteOne();
+            throw error;
+          } else {
+            throw error;
+          }
+        }
+        return await this.processCalendar(c, cnt+1);
+      } else {
+        throw error;
+      }
+    }
+    return events;
+  }
+
+  private async processUser(email: string): Promise<string> {
     const cl:CalendarDocument[] = await Calendar.find({email});
     const events: CalendarEvent[][] = [];
     const existingIds: { [key: string]: string } = {};
     let i=0;
     for (const c of cl) {
       if (c.calendar_id && c.access_token) {
-        events[i] = [];
-        try {
-          const ce = await GoogleAuth.listCalendarEvents(c.calendar_id, c.access_token);
-          ce.forEach((event: CalendarEvent) => {
-            event.status = this.mapResponseStatusToEventStatus(event);
-            if (event.status == 'cancelled') return;
-            existingIds[event.id || ''] = event.status;
-            events[i].push({
-              id: event.id,
-              summary: event.summary,
-              description: event.description,
-              status: event.status,
-              start: event.start,
-              end: event.end,
-            });
-          });
-        } catch(error: any) {
-          if(error.response?.status == 401) {
-            console.log(`${c.calendar_id}: token explired`);
-            // refresh the token
-            await this.refreshToken(c);
-            return this.processUser(email, cnt+1);
-          } else {
-            throw error;
+        events[i] = await this.processCalendar(c);
+        for (const event of events[i]) {
+          if (event.id && event.status) {
+            existingIds[event.id] = event.status;
           }
         }
         i++;
@@ -208,12 +229,15 @@ export class BackendService {
     }
 
     // deleteing the enents whose status changed or here the original event went away
+    let cntDeleted = 0;
     for (let i=0;i<eventsToDelete.length;i++) {
-      console.log("Deleting " + eventsToDelete[i].id);
+      console.log(cl[eventsToDelete[i].accountIdx].calendar_id + ": Deleting " + eventsToDelete[i].id);
       await GoogleAuth.deleteEvent(cl[eventsToDelete[i].accountIdx].access_token, cl[eventsToDelete[i].accountIdx].calendar_id, eventsToDelete[i].id || '');
+      cntDeleted++;
     }
 
     // cloning new events
+    let cntCloned = 0;
     for (let i=0;i<events.length;i++) {
       if (!cl[i].source) continue;
       console.log(`${cl[i].calendar_id}: found ${events[i].length} events`);
@@ -247,14 +271,16 @@ export class BackendService {
                 status: events[i][j].status,
               };
               if (cl[k].access_token && cl[k].calendar_id) {
-                console.log("Cloning " + eventId);
+                console.log(cl[k].calendar_id + ": Cloning " + eventId);
                 await GoogleAuth.createEvent(evt, cl[k].access_token, cl[k].calendar_id);
+                cntCloned++;
               }
             }
           }
         }
       }
     }
+    return `Deleted ${cntDeleted} events and cloned ${cntCloned} events`;
   }
 
   @GenezioMethod({ type: "cron", cronString: "59 * * * *" })
@@ -264,7 +290,7 @@ export class BackendService {
       console.log("Processing " + user.email);
       if (user.email) {
         try {
-          await this.processUser(user.email);
+          console.log(user.email + ": " + await this.processUser(user.email));
         } catch (error: unknown) {  // Use 'unknown' instead of 'any'
           if (error instanceof Error) {
             console.error("Error processing " + user.email + ": " + error.message);
@@ -278,9 +304,9 @@ export class BackendService {
   }
 
   @GenezioAuth()
-  async processMe(context: GnzContext) {
+  async processMe(context: GnzContext): Promise<string> {
     if (context.user?.email)
-      await this.processUser(context.user.email);
+      return await this.processUser(context.user.email);
+    return "";
   }
-
 }

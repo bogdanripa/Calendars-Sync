@@ -12,6 +12,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   const once = useRef(true);
   const [loading, setLoading] = useState(true);
   const [calendars, setCalendars] = useState<CalendarDocument[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   const handleAdd = async () => {
     const url = await BackendService.getAuthUrl();
@@ -30,7 +31,10 @@ export default function App({authInstance}: {authInstance: AuthService}) {
   }
 
   const handleSync = async () => {
-    await BackendService.processMe();
+    setSyncing(true);
+    const result = await BackendService.processMe();
+    setSyncing(false);
+    alert(result);
   }
 
   const togleSource = async (calendar_id: string) => {
@@ -100,7 +104,7 @@ export default function App({authInstance}: {authInstance: AuthService}) {
 
       <button onClick={handleAdd} className="add">Add Calendar</button>
       {calendars.length > 0 &&
-        <button onClick={handleSync}>Sync Calendars</button>
+        <button onClick={handleSync} disabled={syncing}>{syncing ? "Syncing..." : "Sync Calendars"}</button>
       }
       <button onClick={handleSignOut}>Sign Out</button>
       <Footer />
