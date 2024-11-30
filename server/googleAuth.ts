@@ -33,7 +33,8 @@ const getAuthUrl = async (): Promise<string> => {
     return oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES,
-        prompt: 'select_account',
+        prompt: 'consent',
+        // prompt: 'select_account',
     });
 };
 
@@ -43,7 +44,6 @@ const getTokens = async (code: string): Promise<Credentials> => {
     if (!oauth2Client) await initOAuthClient();
     const token = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(token.tokens);
-    console.log('Token: ' + JSON.stringify(token));
     return token.tokens;
 };
 
