@@ -43,6 +43,7 @@ const getTokens = async (code: string): Promise<Credentials> => {
     if (!oauth2Client) await initOAuthClient();
     const token = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(token.tokens);
+    console.log('Token: ' + JSON.stringify(token));
     return token.tokens;
 };
 
