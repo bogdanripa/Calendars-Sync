@@ -466,7 +466,6 @@ export default function TimeOff() {
                   );
                 })}
               </ul>
-              <p className="muted small">Busy copies of anything you declined or cancelled are being cleaned up now.</p>
               <div className="dash-actions">
                 <Link to="/calendars" className="btn btn-primary">
                   Back to calendars

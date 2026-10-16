@@ -148,6 +148,39 @@ export type ApplyResult = {
   detail?: string;
 };
 
+// Instant from an event time; all-day dates widen by a day either side so the
+// search window covers every timezone the copy could have been read in.
+function bound(t: CalendarEvent["start"], edge: "start" | "end"): string {
+  if (t?.dateTime) return new Date(+new Date(t.dateTime) + (edge == "start" ? -60_000 : 60_000)).toISOString();
+  const d = new Date(`${t?.date}T00:00:00Z`);
+  return new Date(+d + (edge == "start" ? -86400_000 : 86400_000)).toISOString();
+}
+
+// Removes the busy copies of `event` from the user's other calendars right
+// away, instead of leaving them for the next sync. Returns how many went.
+async function removeCopies(
+  calendars: Map<string, CalendarDocument>,
+  sourceId: string,
+  event: CalendarEvent,
+): Promise<number> {
+  let removed = 0;
+  const timeMin = bound(event.start, "start");
+  const timeMax = bound(event.end, "end");
+  for (const c of calendars.values()) {
+    if (c.calendar_id == sourceId) continue;
+    await withAccess(c, async (t) => {
+      const events = await GoogleAuth.listEventsInRange(c.calendar_id, t, timeMin, timeMax);
+      for (const copy of events) {
+        if (!copy.id || copiedFrom(copy) != event.id) continue;
+        await ignoreGone(GoogleAuth.deleteEvent(t, c.calendar_id, copy.id));
+        console.log(`${c.calendar_id}: removed busy copy of ${event.id}`);
+        removed++;
+      }
+    });
+  }
+  return removed;
+}
+
 export async function applyTimeOff(email: string, req: ApplyRequest): Promise<ApplyResult[]> {
   const calendars = new Map((await Calendar.find({ email })).map((c) => [c.calendar_id, c]));
   const results: ApplyResult[] = [];
@@ -162,8 +195,9 @@ export async function applyTimeOff(email: string, req: ApplyRequest): Promise<Ap
       continue;
     }
     const note = (a.message ?? req.message ?? "").trim();
+    let event: CalendarEvent;
     try {
-      await withAccess(c, async (t) => {
+      event = await withAccess(c, async (t) => {
         // Re-read the event: its guest list or RSVP may have changed since review.
         const event = await GoogleAuth.getEvent(t, c.calendar_id, a.eventId);
         const role = roleOf(event);
@@ -171,12 +205,23 @@ export async function applyTimeOff(email: string, req: ApplyRequest): Promise<Ap
         if (a.action == "decline") await GoogleAuth.declineEvent(t, c.calendar_id, event, note);
         else if (a.action == "cancel") await GoogleAuth.cancelEvent(t, c.calendar_id, event, note);
         else if (a.action == "delete") await ignoreGone(GoogleAuth.deleteEvent(t, c.calendar_id, a.eventId));
+        return event;
       });
       result.ok = true;
       console.log(`${c.calendar_id}: time off ${a.action} ${a.eventId}`);
     } catch (e) {
       result.error = errorMessage(c, e);
       console.error(`time off ${a.action} failed: ${result.error}`);
+      continue;
+    }
+
+    // The action itself succeeded; a failure here only delays the cleanup to
+    // the sync that follows, so it is reported but does not fail the item.
+    try {
+      const n = await removeCopies(calendars, c.calendar_id, event);
+      if (n) result.detail = `Removed ${n} busy cop${n == 1 ? "y" : "ies"} from your other calendars`;
+    } catch (e) {
+      result.detail = `Busy copies will be removed on the next sync (${errorMessage(c, e)})`;
     }
   }
 
@@ -216,7 +261,7 @@ export async function applyTimeOff(email: string, req: ApplyRequest): Promise<Ap
     }
   }
 
-  // Busy copies of declined/cancelled events go away on the next sync; run it now.
+  // Copies were removed above; a sync now also catches anything that moved.
   processUser(email).catch((e) => console.error(`post time-off sync for ${email} failed:`, e.message));
   return results;
 }
