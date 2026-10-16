@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "calendars-sync",
+      "runtimeExecutable": "server/node_modules/.bin/tsx",
+      "runtimeArgs": ["server/src/index.ts"],
+      "env": {
+        "PORT": "8080",
+        "HOST": "127.0.0.1",
+        "DATABASE_URL": "mongodb://127.0.0.1:27999/calendars-sync",
+        "SESSION_SECRET": "local-dev-secret",
+        "CRON_SECRET": "local-cron",
+        "GOOGLE_CLIENT_ID": "478675157292-cje3bul64nkoduku4bdaargaerujlnej.apps.googleusercontent.com",
+        "GOOGLE_CLIENT_SECRET": "unset-locally",
+        "PUBLIC_URL": "http://localhost:8080",
+        "STATIC_DIR": "client/dist"
+      },
+      "port": 8080
+    }
+  ]
+}

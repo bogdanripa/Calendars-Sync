@@ -1,7 +1,38 @@
-## Google Calendar Sync App
+## Calendars Sync
 
-Welcome to the Calendars Sync app! This app lets you synchronize events across multiple calendars you own.
+Synchronize busy time across multiple Google calendars you own.
 
-Try it out: https://calendars-sync.app.genez.io
- 
-You could use it to copy over personal events to your work calendar so that that when you have personal events that time gets blocked automatically in your work calendar. Each calendar you add can be a source, a destination, or both.
+Live: https://calendars-sync-coolify.bogdanripa.com
+
+Use it to copy personal events to your work calendar, so time taken by personal events is blocked there automatically. Each calendar you add can be a source, a destination, or both. Copies appear as `Busy (confirmed)` / `Busy (tentative)` with the same start and end. No titles or details are copied.
+
+### How it works
+
+- **server/**: Express + Mongoose (TypeScript). Google sign-in, calendar OAuth, the sync engine, and the JSON API. It also serves the built client.
+- **client/**: React + Vite. A marketing landing page (`/`), the dashboard (`/calendars`), and the legal pages.
+- Every hour the platform scheduler calls `POST /api/cron/sync` (authenticated with `CRON_SECRET`), which syncs every user. The next 14 days are synced. Declined events are skipped, and tentative or unanswered ones are copied as tentative. A copy is deleted or replaced when its original moves, is cancelled, or changes RSVP. Copies are tagged `Copied from <event id>` in the description, so they never get copied again.
+
+### Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | MongoDB connection string (injected by the platform) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth web client |
+| `PUBLIC_URL` | Public base URL; the OAuth redirect is `${PUBLIC_URL}/auth/google/callback` |
+| `SESSION_SECRET` | HMAC key for the session cookie |
+| `CRON_SECRET` | Shared secret for `POST /api/cron/sync` |
+
+The Google OAuth client must list `${PUBLIC_URL}/auth/google/callback` as an authorized redirect URI.
+
+### Local development
+
+```bash
+cd server && npm install && PORT=8080 HOST=127.0.0.1 DATABASE_URL=mongodb://127.0.0.1/calendars-sync \
+  SESSION_SECRET=dev CRON_SECRET=dev PUBLIC_URL=http://localhost:5173 \
+  GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... npm run dev
+cd client && npm install && npm run dev
+```
+
+### Deploying
+
+Pushing to `main` builds an arm64 image in GitHub Actions and deploys it to pironman (`.github/workflows/deploy.yml`).

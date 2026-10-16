@@ -1,14 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import genezioLocalSDKReload from "@genezio/vite-plugin-genezio";
 
-// https://vitejs.dev/config/
+// In dev the API runs separately (server: npm run dev, PORT=8080).
 export default defineConfig({
-  plugins: [react(), genezioLocalSDKReload()],
+  plugins: [react()],
   server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
+    proxy: {
+      "/api": "http://localhost:8080",
+      "/auth": "http://localhost:8080",
     },
   },
 });
