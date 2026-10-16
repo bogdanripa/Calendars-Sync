@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, Calendar, connectCalendar, UnauthorizedError, User } from "./api.ts";
 import { Footer, Nav } from "./Layout.tsx";
 
@@ -109,6 +109,20 @@ export default function Dashboard() {
                   <span className="cal-name">{c.calendar_id}</span>
                 </div>
                 <div className="cal-actions">
+                  <div className="seg seg-small" role="radiogroup" aria-label="Calendar type">
+                    {(["work", "personal"] as const).map((k) => (
+                      <button
+                        key={k}
+                        role="radio"
+                        aria-checked={c.kind == k}
+                        className={`seg-btn ${c.kind == k ? "on" : ""}`}
+                        title={k == "work" ? "Work invites get declined when you take time off" : "Kept when you take time off"}
+                        onClick={() => api.setKind(c.calendar_id, k).then(replace).catch(fail)}
+                      >
+                        {k == "work" ? "Work" : "Personal"}
+                      </button>
+                    ))}
+                  </div>
                   <Toggle
                     on={c.source}
                     label="Source"
@@ -139,6 +153,22 @@ export default function Dashboard() {
               </button>
             )}
           </div>
+          {calendars && calendars.length > 0 && (
+            <Link to="/time-off" className="card timeoff-cta">
+              <span className="feature-icon" aria-hidden="true">
+                🌴
+              </span>
+              <span>
+                <b>Taking time off?</b>
+                <span className="muted">
+                  {" "}
+                  Tell us when. We’ll show everything on your calendars, decline work invites with a note, and block your
+                  work calendar as OOO.
+                </span>
+              </span>
+              <span className="timeoff-go">Plan time off →</span>
+            </Link>
+          )}
           {calendars && calendars.length == 1 && (
             <p className="muted small">Tip: connect a second calendar. Syncing needs at least two.</p>
           )}

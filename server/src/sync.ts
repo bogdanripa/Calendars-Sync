@@ -1,12 +1,12 @@
 import { Calendar, CalendarDocument, Users } from "./db.js";
-import { GoogleAuth, CalendarEvent, EventAttendee } from "./google.js";
+import { GoogleAuth, CalendarEvent, EventAttendee, isOurOutOfOffice } from "./google.js";
 
 // Copies carry "Copied from <original event id>" in their description (very
 // old copies had it in the summary). This marker is unchanged from the
 // original app, so copies it created are still recognised.
 const MARKER = "Copied from ";
 
-function copiedFrom(event: CalendarEvent): string | null {
+export function copiedFrom(event: CalendarEvent): string | null {
   let text = event.summary || "";
   if (text.indexOf(MARKER) == -1) text = event.description || "";
   return text.indexOf(MARKER) == 0 ? text.replace(MARKER, "") : null;
@@ -32,7 +32,7 @@ function mapResponseStatusToEventStatus(event: CalendarEvent): string {
   }
 }
 
-function isInvalidGrant(error: any): boolean {
+export function isInvalidGrant(error: any): boolean {
   return error?.message == "invalid_grant" || error?.response?.data?.error == "invalid_grant";
 }
 
@@ -48,46 +48,56 @@ async function refreshToken(c: CalendarDocument) {
   console.log(c.calendar_id + ": token refreshed");
 }
 
-// Returns the calendar's events, or null if its access was revoked (in which
-// case the calendar is removed, as the original app did).
-async function processCalendar(c: CalendarDocument): Promise<CalendarEvent[] | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+// Runs fn with a valid access token: refreshes ahead of expiry, and once more
+// on a 401. A revoked grant surfaces as an error isInvalidGrant() recognises.
+export async function withAccess<T>(c: CalendarDocument, fn: (accessToken: string) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
     try {
       if (attempt > 0 || c.expiry_date < Date.now() + 60_000) {
         await refreshToken(c);
       }
-      const ce = await GoogleAuth.listCalendarEvents(c.calendar_id, c.access_token);
-      const events: CalendarEvent[] = [];
-      for (const event of ce) {
-        event.status = mapResponseStatusToEventStatus(event);
-        if (event.status == "cancelled") continue;
-        events.push({
-          id: event.id,
-          summary: event.summary,
-          description: event.description,
-          status: event.status,
-          start: event.start,
-          end: event.end,
-        });
-      }
-      return events;
+      return await fn(c.access_token);
     } catch (error: any) {
-      if (isInvalidGrant(error)) {
-        console.error(`${c.calendar_id}: token is invalid, deleting the calendar`);
-        await c.deleteOne();
-        return null;
-      }
-      if (error.response?.status == 401 && attempt == 0) {
+      if (error.response?.status == 401 && attempt == 0 && !isInvalidGrant(error)) {
         console.log(`${c.calendar_id}: token expired`);
         continue;
       }
       throw error;
     }
   }
-  throw new Error(`${c.calendar_id}: Failed to refresh token`);
 }
 
-async function ignoreGone(p: Promise<unknown>) {
+// Returns the calendar's events, or null if its access was revoked (in which
+// case the calendar is removed, as the original app did).
+async function processCalendar(c: CalendarDocument): Promise<CalendarEvent[] | null> {
+  try {
+    const ce = await withAccess(c, (token) => GoogleAuth.listCalendarEvents(c.calendar_id, token));
+    const events: CalendarEvent[] = [];
+    for (const event of ce) {
+      event.status = mapResponseStatusToEventStatus(event);
+      if (event.status == "cancelled") continue;
+      if (isOurOutOfOffice(event)) continue; // time-off blocks stay on their own calendar
+      events.push({
+        id: event.id,
+        summary: event.summary,
+        description: event.description,
+        status: event.status,
+        start: event.start,
+        end: event.end,
+      });
+    }
+    return events;
+  } catch (error: any) {
+    if (isInvalidGrant(error)) {
+      console.error(`${c.calendar_id}: token is invalid, deleting the calendar`);
+      await c.deleteOne();
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function ignoreGone(p: Promise<unknown>) {
   try {
     await p;
   } catch (error: any) {

@@ -12,6 +12,8 @@ const CalendarSchema = new Schema({
   calendar_id: { type: String, required: true },
   source: { type: Boolean },
   destination: { type: Boolean },
+  // "work" | "personal". Unset on older records; see calendarKind().
+  kind: { type: String, enum: ["work", "personal"] },
 });
 
 export type CalendarDocument = HydratedDocument<InferSchemaType<typeof CalendarSchema>>;
@@ -37,6 +39,15 @@ export async function connectDb() {
   console.log("Connected to MongoDB");
 }
 
+const PERSONAL_DOMAINS = ["gmail.com", "googlemail.com"];
+
+// Consumer Google accounts default to personal, Workspace accounts to work.
+export function calendarKind(c: { kind?: string | null; calendar_id: string }): "work" | "personal" {
+  if (c.kind == "work" || c.kind == "personal") return c.kind;
+  const domain = c.calendar_id.split("@")[1]?.toLowerCase() || "";
+  return PERSONAL_DOMAINS.includes(domain) ? "personal" : "work";
+}
+
 // What the dashboard sees: never send OAuth tokens to the browser.
 export function publicCalendar(c: CalendarDocument) {
   return {
@@ -44,5 +55,6 @@ export function publicCalendar(c: CalendarDocument) {
     calendar_id: c.calendar_id,
     source: !!c.source,
     destination: !!c.destination,
+    kind: calendarKind(c),
   };
 }

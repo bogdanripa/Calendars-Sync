@@ -5,6 +5,7 @@ import express from "express";
 import { Calendar, Users, connectDb, publicCalendar } from "./db.js";
 import { GoogleAuth, publicUrl } from "./google.js";
 import { processAllUsers, processUser } from "./sync.js";
+import { applyTimeOff, listTimeOff, parseRange } from "./timeoff.js";
 import { clearSession, readSession, requireUser, setOAuthState, setSession, takeOAuthState } from "./session.js";
 
 const app = express();
@@ -133,12 +134,43 @@ for (const field of ["source", "destination"] as const) {
   });
 }
 
+app.post("/api/calendars/:calendarId/kind", requireUser, async (req, res) => {
+  const kind = req.body?.kind;
+  if (kind != "work" && kind != "personal") return res.status(400).json({ error: "kind must be work or personal" });
+  const c = await Calendar.findOne({ email: req.user!.email, calendar_id: req.params.calendarId });
+  if (!c) return res.status(404).json({ error: "Calendar not found" });
+  c.kind = kind;
+  await c.save();
+  res.json(publicCalendar(c));
+});
+
 app.post("/api/sync", requireUser, async (req, res) => {
   try {
     res.json({ result: await processUser(req.user!.email) });
   } catch (e) {
     console.error("Error processing " + req.user!.email + ": " + (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ---- Time off -----------------------------------------------------------
+
+app.get("/api/timeoff/events", requireUser, async (req, res) => {
+  let range;
+  try {
+    range = parseRange(req.query.start, req.query.end);
+  } catch (e) {
+    return res.status(400).json({ error: (e as Error).message });
+  }
+  res.json(await listTimeOff(req.user!.email, range.start, range.end));
+});
+
+app.post("/api/timeoff/apply", requireUser, async (req, res) => {
+  if (!Array.isArray(req.body?.actions)) return res.status(400).json({ error: "actions must be an array" });
+  try {
+    res.json({ results: await applyTimeOff(req.user!.email, req.body) });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
   }
 });
 

@@ -4,7 +4,9 @@
     {
       "name": "calendars-sync",
       "runtimeExecutable": "server/node_modules/.bin/tsx",
-      "runtimeArgs": ["server/src/index.ts"],
+      "runtimeArgs": [
+        "server/src/index.ts"
+      ],
       "env": {
         "PORT": "8080",
         "HOST": "127.0.0.1",

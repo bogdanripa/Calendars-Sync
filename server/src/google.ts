@@ -135,7 +135,121 @@ const deleteEvent = async (access_token: string, calendarId: string, eventId: st
   });
 };
 
+// Every event overlapping [timeMin, timeMax), recurring ones expanded, in full.
+const listEventsInRange = async (
+  calendarId: string,
+  access_token: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<CalendarEvent[]> => {
+  const events: CalendarEvent[] = [];
+  let pageToken: string | undefined;
+  do {
+    const response = await calendarApi(access_token).events.list({
+      calendarId,
+      timeMin,
+      timeMax,
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 2500,
+      pageToken,
+    });
+    events.push(...(response.data.items || []));
+    pageToken = response.data.nextPageToken || undefined;
+  } while (pageToken);
+  return events;
+};
+
+const getEvent = async (access_token: string, calendarId: string, eventId: string): Promise<CalendarEvent> =>
+  (await calendarApi(access_token).events.get({ calendarId, eventId })).data;
+
+// RSVP "no" as an attendee. The organizer is notified, with the comment.
+const declineEvent = async (access_token: string, calendarId: string, event: CalendarEvent, comment: string) => {
+  const attendees = (event.attendees || []).map((a) =>
+    a.self ? { ...a, responseStatus: "declined", comment: comment || undefined } : a,
+  );
+  await calendarApi(access_token).events.patch({
+    calendarId,
+    eventId: event.id!,
+    sendUpdates: "all",
+    requestBody: { attendees },
+  });
+};
+
+// Cancel a meeting you organize: guests get a cancellation that includes the
+// note, which is put at the top of the description first (silently).
+const cancelEvent = async (access_token: string, calendarId: string, event: CalendarEvent, note: string) => {
+  const api = calendarApi(access_token);
+  if (note) {
+    await api.events.patch({
+      calendarId,
+      eventId: event.id!,
+      sendUpdates: "none",
+      requestBody: { description: event.description ? `${note}\n\n${event.description}` : note },
+    });
+  }
+  await api.events.delete({ calendarId, eventId: event.id!, sendUpdates: "all" });
+};
+
+// Marks the OOO blocks this app creates, so the sync never copies them.
+export const OOO_MARKER = { calendarsSync: "ooo" };
+
+export function isOurOutOfOffice(event: CalendarEvent): boolean {
+  return event.extendedProperties?.private?.calendarsSync == "ooo";
+}
+
+// A multi-day "OOO" block. Prefers Google's native Out of office event, which
+// also auto-declines NEW invites in the range with the message (existing ones
+// are handled one by one in the review). That type exists only on Workspace
+// calendars, so anything else gets a plain all-day busy event instead.
+const createOutOfOffice = async (
+  access_token: string,
+  calendarId: string,
+  range: { start: string; end: string; startDate: string; endDate: string; timeZone: string },
+  declineMessage: string,
+): Promise<"native" | "all-day"> => {
+  const api = calendarApi(access_token);
+  try {
+    await api.events.insert({
+      calendarId,
+      requestBody: {
+        eventType: "outOfOffice",
+        summary: "OOO",
+        start: { dateTime: range.start, timeZone: range.timeZone },
+        end: { dateTime: range.end, timeZone: range.timeZone },
+        transparency: "opaque",
+        extendedProperties: { private: OOO_MARKER },
+        outOfOfficeProperties: {
+          autoDeclineMode: "declineOnlyNewConflictingInvitations",
+          declineMessage,
+        },
+      },
+    });
+    return "native";
+  } catch (error: any) {
+    if (error.response?.status != 400) throw error;
+    console.log(`${calendarId}: native out-of-office not supported, using an all-day event`);
+  }
+  await api.events.insert({
+    calendarId,
+    requestBody: {
+      summary: "OOO",
+      description: declineMessage || undefined,
+      start: { date: range.startDate },
+      end: { date: range.endDate },
+      transparency: "opaque",
+      extendedProperties: { private: OOO_MARKER },
+    },
+  });
+  return "all-day";
+};
+
 export const GoogleAuth = {
+  listEventsInRange,
+  getEvent,
+  declineEvent,
+  cancelEvent,
+  createOutOfOffice,
   getLoginUrl,
   getAuthUrl,
   getTokens,
