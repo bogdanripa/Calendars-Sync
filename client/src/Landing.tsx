@@ -98,7 +98,7 @@ const FEATURES = [
   {
     icon: "🌴",
     title: "Time off in one go",
-    text: "Say “vacation next week”. Review every event across your calendars, decline work invites with a note, and block work as OOO.",
+    text: "Pick the days you’re out. Review every event across your calendars, decline work invites with a note, and block work as OOO.",
   },
   {
     icon: "🔁",
@@ -118,7 +118,7 @@ const FAQ = [
   },
   {
     q: "How does time off work?",
-    a: "Type when you’re out, like “I’m OOO on Friday” or “vacation next week”. You get every event in that range from all your connected calendars. Invites on work calendars are set to decline and meetings you organize there to cancel. Personal events are kept. Change any of them, edit the note, and apply. Your work calendars then get a multi-day “OOO” entry.",
+    a: "Pick the days you’re out, with one click for tomorrow or next week, or any dates you like. You get every event in that range from all your connected calendars. Invites on work calendars are set to decline and meetings you organize there to cancel. Personal events are kept. Change any of them, edit the note, and apply. Your work calendars then get a multi-day “OOO” entry.",
   },
   {
     q: "What do people see when I decline?",
@@ -238,9 +238,9 @@ export default function Landing() {
           <div className="container showcase">
             <div>
               <span className="eyebrow">New · Time off</span>
-              <h2 className="left">“I’ll be on vacation next week.”</h2>
+              <h2 className="left">Off next week? Two clicks.</h2>
               <p className="lead">
-                That’s all you type. Calendars Sync lists every event in those days across all your calendars and
+                Pick the days you’re out. Calendars Sync lists every event in those days across all your calendars and
                 suggests what to do with each. You review it, adjust anything, and apply.
               </p>
               <ul className="ticks">
@@ -256,7 +256,11 @@ export default function Landing() {
             <div className="card review-mock" aria-hidden="true">
               <div className="rm-when">
                 <span className="muted small">When are you out?</span>
-                <div className="rm-input">I’ll be on vacation next week</div>
+                <div className="rm-chips">
+                  <span className="chip">Tomorrow</span>
+                  <span className="chip chip-on">Next week</span>
+                  <span className="chip">Next 2 weeks</span>
+                </div>
                 <span className="small rm-range">Mon, Oct 19 – Sun, Oct 25 · 7 days</span>
               </div>
               {[

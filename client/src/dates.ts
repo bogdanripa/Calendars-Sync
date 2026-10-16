@@ -1,5 +1,3 @@
-import * as chrono from "chrono-node";
-
 // A range of whole local days: start at 00:00 of the first day, end at 00:00
 // of the day after the last one (so it can be sent to the API as-is).
 export type DayRange = { start: Date; end: Date };
@@ -26,42 +24,20 @@ function days(first: Date, last: Date): DayRange {
   return b < a ? { start: b, end: addDays(a, 1) } : { start: a, end: addDays(b, 1) };
 }
 
-const NUMBERS: Record<string, number> = { a: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, ten: 10 };
-
-// "I'm OOO on Friday", "vacation next week", "off from Oct 20 to 24",
-// "out the next 3 days", "OOO tomorrow". Returns null if nothing parses.
-export function parseTimeOff(text: string, now = new Date()): DayRange | null {
-  const t = text.toLowerCase();
+// One-click ranges for the time-off picker.
+export function presets(now = new Date()): { label: string; range: DayRange }[] {
   const today = startOfDay(now);
-
-  if (/\bnext week\b/.test(t)) {
-    const mon = addDays(startOfWeek(today), 7);
-    return { start: mon, end: addDays(mon, 7) };
-  }
-  if (/\b(this|rest of the) week\b/.test(t)) {
-    return { start: today, end: addDays(startOfWeek(today), 7) };
-  }
-  const nextN = t.match(/\b(?:next|coming)\s+(\d+|a|one|two|three|four|five|six|seven|ten)\s+(day|week)s?\b/);
-  if (nextN) {
-    const n = Number(nextN[1]) || NUMBERS[nextN[1]] || 1;
-    return { start: today, end: addDays(today, nextN[2] == "week" ? n * 7 : n) };
-  }
-  const weekOf = t.match(/\bweek of (.+)/);
-  if (weekOf) {
-    const d = chrono.parseDate(weekOf[1], now, { forwardDate: true });
-    if (d) {
-      const mon = startOfWeek(d);
-      return { start: mon, end: addDays(mon, 7) };
-    }
-  }
-
-  const results = chrono.parse(text, now, { forwardDate: true });
-  if (!results.length) return null;
-  const first = results[0];
-  const last = results.length > 1 && !first.end ? results[results.length - 1] : null;
-  const end = first.end?.date() || last?.start.date() || first.start.date();
-  return days(first.start.date(), end);
+  const monday = startOfWeek(today);
+  return [
+    { label: "Today", range: days(today, today) },
+    { label: "Tomorrow", range: days(addDays(today, 1), addDays(today, 1)) },
+    { label: "Rest of this week", range: { start: today, end: addDays(monday, 7) } },
+    { label: "Next week", range: { start: addDays(monday, 7), end: addDays(monday, 14) } },
+    { label: "Next 2 weeks", range: { start: addDays(monday, 7), end: addDays(monday, 21) } },
+  ];
 }
+
+export const sameRange = (a: DayRange, b: DayRange) => +a.start == +b.start && +a.end == +b.end;
 
 export function toInputValue(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");

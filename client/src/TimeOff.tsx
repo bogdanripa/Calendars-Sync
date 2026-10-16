@@ -7,7 +7,8 @@ import {
   DayRange,
   describeRange,
   fromInputValue,
-  parseTimeOff,
+  presets,
+  sameRange,
   startOfDay,
   toInputValue,
 } from "./dates.ts";
@@ -15,7 +16,6 @@ import { Footer, Nav } from "./Layout.tsx";
 
 type Step = "when" | "review" | "done";
 
-const EXAMPLES = ["I'm OOO tomorrow", "I'll be on vacation next week", "Off from Nov 2 to Nov 6"];
 
 const ACTION_LABEL: Record<Action, string> = {
   decline: "Decline",
@@ -70,9 +70,7 @@ function roleLabel(i: TimeOffItem): string {
 export default function TimeOff() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("when");
-  const [text, setText] = useState("");
-  const [range, setRange] = useState<DayRange | null>(null);
-  const [parseError, setParseError] = useState("");
+  const [range, setRange] = useState<DayRange>(() => presets()[1].range);
 
   const [list, setList] = useState<TimeOffList | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,21 +98,6 @@ export default function TimeOff() {
   useEffect(() => {
     if (range && !messageEdited) setMessage(defaultMessage(range));
   }, [range, messageEdited]);
-
-  const interpret = (value: string) => {
-    setText(value);
-    const r = parseTimeOff(value);
-    if (r) {
-      setRange(r);
-      setParseError("");
-    } else {
-      setParseError("I couldn't work out the dates from that. Pick them below.");
-      if (!range) {
-        const today = startOfDay(new Date());
-        setRange({ start: today, end: addDays(today, 1) });
-      }
-    }
-  };
 
   const loadEvents = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -221,26 +204,19 @@ export default function TimeOff() {
 
           {step == "when" && (
             <form className="card when" onSubmit={loadEvents}>
-              <label htmlFor="when-text" className="label">
-                When are you out?
-              </label>
-              <input
-                id="when-text"
-                className="input input-lg"
-                placeholder="I'll be on vacation next week"
-                value={text}
-                autoFocus
-                onChange={(e) => interpret(e.target.value)}
-              />
+              <span className="label">When are you out?</span>
               <div className="chips">
-                {EXAMPLES.map((ex) => (
-                  <button type="button" key={ex} className="chip" onClick={() => interpret(ex)}>
-                    {ex}
+                {presets().map((p) => (
+                  <button
+                    type="button"
+                    key={p.label}
+                    className={`chip ${sameRange(p.range, range) ? "chip-on" : ""}`}
+                    onClick={() => setRange(p.range)}
+                  >
+                    {p.label}
                   </button>
                 ))}
               </div>
-              {parseError && text && <p className="muted small">{parseError}</p>}
-
               {range && (
                 <div className="range">
                   <label>

@@ -680,6 +680,13 @@ textarea.input {
   color: var(--muted);
   cursor: pointer;
 }
+.chip-on,
+.chip-on:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
 .chip:hover {
   color: var(--text);
   border-color: var(--primary);
@@ -997,11 +1004,10 @@ textarea.input {
   gap: 4px;
   margin-bottom: 8px;
 }
-.rm-input {
-  border: 1px solid var(--primary);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-weight: 500;
+.rm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .rm-range {
   font-weight: 600;

@@ -162,7 +162,7 @@ export default function Dashboard() {
                 <b>Taking time off?</b>
                 <span className="muted">
                   {" "}
-                  Tell us when. We’ll show everything on your calendars, decline work invites with a note, and block your
+                  Pick the days. We’ll show everything on your calendars, decline work invites with a note, and block your
                   work calendar as OOO.
                 </span>
               </span>
